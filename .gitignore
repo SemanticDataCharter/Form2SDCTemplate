@@ -1,0 +1,70 @@
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary Files
+*.tmp
+*.temp
+*.log
+*.cache
+
+# Build and Distribution
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+ENV/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Documentation Build
+docs/_build/
+site/
+
+# Test Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Generated Files
+*.generated.*
+
+# Backup Files
+*.bak
+*.backup

@@ -1,0 +1,56 @@
+name: Mark Stale Issues and PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+    - uses: actions/stale@v9
+      with:
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+        # Issue settings
+        stale-issue-message: |
+          This issue has been automatically marked as stale because it has not had
+          recent activity. It will be closed in 7 days if no further activity occurs.
+
+          If this issue is still relevant, please comment to keep it open.
+
+          Thank you for your contributions to Form2SDCTemplate!
+        close-issue-message: |
+          This issue was automatically closed due to inactivity. If you believe this
+          issue is still relevant, please reopen it or create a new issue with
+          updated information.
+        days-before-stale: 60
+        days-before-close: 7
+        stale-issue-label: 'stale'
+        exempt-issue-labels: 'pinned,security,bug,enhancement'
+
+        # PR settings
+        stale-pr-message: |
+          This pull request has been automatically marked as stale because it has not
+          had recent activity. It will be closed in 7 days if no further activity occurs.
+
+          If this PR is still being worked on, please comment to keep it open.
+
+          Thank you for your contributions to Form2SDCTemplate!
+        close-pr-message: |
+          This pull request was automatically closed due to inactivity. If you would
+          like to resume work on this PR, please reopen it or create a new PR.
+        days-before-pr-stale: 45
+        days-before-pr-close: 7
+        stale-pr-label: 'stale'
+        exempt-pr-labels: 'pinned,security,work-in-progress'
+
+        # General settings
+        operations-per-run: 30
+        remove-stale-when-updated: true
+        ascending: true

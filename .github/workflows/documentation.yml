@@ -1,0 +1,149 @@
+name: Documentation Checks
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  markdown-lint:
+    name: Markdown Linting
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run markdownlint
+      uses: articulate/actions-markdownlint@v1
+      with:
+        config: .markdownlint.json
+        files: '*.md'
+        ignore: node_modules
+      continue-on-error: true
+
+  link-check:
+    name: Check Markdown Links
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check links in markdown files
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+        config-file: '.markdown-link-check.json'
+      continue-on-error: true
+
+  documentation-validation:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Check required files exist
+      run: |
+        echo "Checking for required documentation files..."
+        required_files=(
+          "README.md"
+          "LICENSE"
+          "CONTRIBUTING.md"
+          "CODE_OF_CONDUCT.md"
+          "SECURITY.md"
+          "CHANGELOG.md"
+          "CLAUDE.md"
+        )
+
+        missing_files=()
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            missing_files+=("$file")
+          else
+            echo "✓ Found $file"
+          fi
+        done
+
+        if [ ${#missing_files[@]} -ne 0 ]; then
+          echo "❌ Missing required files:"
+          printf '%s\n' "${missing_files[@]}"
+          exit 1
+        else
+          echo "✓ All required documentation files present"
+        fi
+
+    - name: Check documentation structure
+      run: |
+        echo "Validating documentation structure..."
+
+        # Check README has essential sections
+        if ! grep -q "## Overview" README.md; then
+          echo "⚠ README.md missing Overview section"
+        fi
+
+        if ! grep -q "## Quick Start" README.md; then
+          echo "⚠ README.md missing Quick Start section"
+        fi
+
+        if ! grep -q "## License" README.md; then
+          echo "⚠ README.md missing License section"
+        fi
+
+        # Check CLAUDE.md has essential sections
+        if ! grep -q "## Architecture" CLAUDE.md; then
+          echo "⚠ CLAUDE.md missing Architecture section"
+        fi
+
+        # Check CONTRIBUTING has workflow
+        if ! grep -q "## Contribution Workflow" CONTRIBUTING.md; then
+          echo "⚠ CONTRIBUTING.md missing Contribution Workflow section"
+        fi
+
+        echo "✓ Documentation structure validation complete"
+
+  version-consistency:
+    name: Check Version Consistency
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Verify version consistency
+      run: |
+        echo "Checking version consistency across files..."
+
+        # Extract version from README
+        readme_version=$(grep -oP '(?<=badge/version-)[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1)
+        echo "README version: $readme_version"
+
+        # Extract latest version from CHANGELOG
+        changelog_version=$(grep -oP '(?<=## \[)[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md | head -1)
+        echo "CHANGELOG version: $changelog_version"
+
+        if [ "$readme_version" != "$changelog_version" ]; then
+          echo "❌ Version mismatch between README ($readme_version) and CHANGELOG ($changelog_version)"
+          exit 1
+        else
+          echo "✓ Version consistency verified: $readme_version"
+        fi
+
+  spell-check:
+    name: Spell Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run spell check
+      uses: rojopolis/spellcheck-github-actions@0.36.0
+      with:
+        config_path: .spellcheck.yml
+      continue-on-error: true
