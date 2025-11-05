@@ -16,6 +16,17 @@ This tool bridges the gap between human-readable form descriptions and machine-r
 
 ## Quick Start
 
+### Option 1: Direct Download (Recommended)
+
+1. Click on [Form2SDCTemplate.md](Form2SDCTemplate.md) in this repository
+2. Look for the **Download** button (down arrow ⬇) in the upper right of the file view
+3. Save the file to your computer
+4. Upload `Form2SDCTemplate.md` to your preferred LLM (Claude, ChatGPT, etc.)
+5. Provide your form description, PDF, or requirements to the LLM
+6. Review the generated template and upload it to SDCStudio for processing
+
+### Option 2: Clone Repository (For Contributors)
+
 1. Clone this repository:
    ```bash
    git clone https://github.com/SemanticDataCharter/Form2SDCTemplate.git
