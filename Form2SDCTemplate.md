@@ -1,6 +1,6 @@
 # Form2SDCTemplate: LLM Instructions for Creating SDCStudio Templates
 
-**VERSION:** 4.0.0
+**VERSION:** 4.1.0
 **TARGET:** Large Language Models (Claude, ChatGPT, etc.)
 **PURPOSE:** Generate SDCStudio-compliant dataset templates from form descriptions
 
@@ -44,9 +44,12 @@ Every template MUST follow this structure:
 ```
 1. YAML Front Matter (metadata)
 2. Dataset Overview (purpose and context)
-3. Root Cluster (primary data grouping)
-4. Column Definitions (individual fields)
-5. Sub-Clusters (optional nested groupings)
+3. Subject Section (optional — who the record is about)
+4. Provider Section (optional — who provided the data)
+5. Participation Sections (optional — other involved parties)
+6. Root Cluster (primary data grouping)
+7. Column Definitions (individual fields)
+8. Sub-Clusters (optional nested groupings)
 ```
 
 ---
@@ -107,7 +110,99 @@ After the YAML front matter, provide a dataset overview:
 
 ---
 
-## PART 3: Root Cluster Section
+## PART 3: Subject, Provider, and Participation Sections (Optional)
+
+The SDC4 reference model supports three structural participation slots on every Data Model (DM). These sections define **who** is involved with the data, separate from **what** the data contains (which goes in the Root Cluster).
+
+- **Subject** — The party the record is about (patient, citizen, vessel, taxpayer)
+- **Provider** — The party that provided or maintains the data (hospital, registry office, port authority)
+- **Participation** — Other involved parties (attending physician, registrar, lab technician)
+
+**All three are optional.** Templates without them work exactly as before — all data goes into the Root Cluster. Use them when the form clearly identifies actors/participants beyond the data payload.
+
+### Subject Section
+
+Defines who the record is about. Only **one** `## Subject:` per template.
+
+```markdown
+## Subject: [Party Name]
+**Description**: [Who this party is and their role]
+
+### Column: column_name
+**Type**: [type]
+**Description**: [description]
+**Examples**: [examples]
+```
+
+Columns under `## Subject:` become the Party's **details Cluster** — demographic or identity components (names, IDs, dates of birth) that describe the subject.
+
+### Provider Section
+
+Defines who provided or maintains the data. Only **one** `## Provider:` per template.
+
+```markdown
+## Provider: [Provider Name]
+**Description**: [Who this provider is]
+
+### Column: column_name
+**Type**: [type]
+**Description**: [description]
+**Examples**: [examples]
+```
+
+### Participation Section
+
+Defines other involved parties. **Multiple** `## Participation:` sections are allowed (the DM has a many-to-many relationship with Participations).
+
+```markdown
+## Participation: [Participant Name]
+**Description**: [Role of this participant]
+**Function**: [Function/role label]
+**Function Description**: [What this function means]
+**Mode**: [Interaction mode label]
+**Mode Description**: [What this mode means]
+
+### Column: column_name
+**Type**: [type]
+**Description**: [description]
+**Examples**: [examples]
+```
+
+**Participation-specific keywords:**
+
+| Keyword | Required | Description |
+|---------|----------|-------------|
+| `**Description**:` | No | Description of this participation |
+| `**Function**:` | No | Role/function label (e.g., "Civil Registrar", "Attending Physician") |
+| `**Function Description**:` | No | Explanation of the function |
+| `**Mode**:` | No | Interaction mode (e.g., "In Person", "By Telephone", "Electronic") |
+| `**Mode Description**:` | No | Explanation of the mode |
+
+### Key Rules
+
+1. **All three sections are optional** — existing templates without them work unchanged
+2. **Only one `## Subject:` and one `## Provider:`** per template
+3. **Multiple `## Participation:` sections allowed** (one per participant role)
+4. **Columns are isolated** — columns under Subject/Provider/Participation do NOT appear in the data cluster
+5. **Same column syntax** — `### Column:` entries use the same keywords as data cluster columns (`**Type**:`, `**Description**:`, `**ReuseComponent**:`, etc.)
+6. **`**ReuseComponent**:` works** in party columns for cross-project component reuse
+
+### When to Use These Sections
+
+**Use Subject/Provider/Participation when:**
+- The form clearly identifies a person or organization the record is about (patient, applicant, vessel)
+- The form identifies who collects or maintains the data (hospital, government agency)
+- The form identifies other participants (registrar, attending physician, inspector)
+- Demographic data (names, IDs, birth dates) should be modeled separately from the data payload
+
+**Keep everything in Root Cluster when:**
+- The form is purely data-focused (sensor readings, financial transactions)
+- There's no clear "who" beyond the data itself
+- The form is simple and flat
+
+---
+
+## PART 4: Root Cluster Section
 
 Define the primary data cluster:
 
@@ -127,7 +222,7 @@ Define the primary data cluster:
 
 ---
 
-## PART 4: Column Definitions
+## PART 5: Column Definitions
 
 This is the core of the template. For each field in the form, create a column definition.
 
@@ -262,7 +357,7 @@ These keywords are for enrichment and are included in the description field:
 
 ---
 
-## PART 5: Type Reference
+## PART 6: Type Reference
 
 ### User-Friendly Types (Recommended)
 
@@ -322,7 +417,7 @@ The system uses context clues to choose the correct SDC4 type:
 
 ---
 
-## PART 6: Enumeration Syntax
+## PART 7: Enumeration Syntax
 
 For fields with a fixed set of allowed values, use enumeration.
 
@@ -362,7 +457,7 @@ For fields with a fixed set of allowed values, use enumeration.
 
 ---
 
-## PART 7: Constraints Syntax
+## PART 8: Constraints Syntax
 
 Define validation rules using a bullet list:
 
@@ -409,7 +504,7 @@ Identifier constraint:
 
 ---
 
-## PART 8: Sub-Clusters (Optional)
+## PART 9: Sub-Clusters (Optional)
 
 Group related columns into sub-clusters for better organization:
 
@@ -455,7 +550,7 @@ Group related columns into sub-clusters for better organization:
 
 ---
 
-## PART 9: Component Reuse (Advanced)
+## PART 10: Component Reuse (Advanced)
 
 Reuse existing components from standard libraries or other projects instead of recreating them.
 
@@ -524,7 +619,7 @@ This inherits all columns from the NIEM USAddress cluster (street, city, state, 
 
 ---
 
-## PART 10: Complete Example Templates
+## PART 11: Complete Example Templates
 
 ### Example 1: Healthcare Patient Registration (English)
 
@@ -1663,9 +1758,195 @@ Preferências e histórico de compras do cliente.
 **Examples**: bronze, prata, ouro
 ```
 
+### Example 6: Civil Registry with Subject/Provider/Participation
+
+This example demonstrates the SDC4 participation model — separating **who** (Subject, Provider, Participation) from **what** (Root Cluster data).
+
+```yaml
+---
+template_version: "4.0.0"
+dataset:
+  name: "Civil Registry Birth Record"
+  description: "Registration of births in the civil registry"
+  domain: "Government"
+  creator: "Registry Administration"
+enrichment:
+  enable_llm: true
 ---
 
-## PART 11: LLM Generation Guidelines
+# Dataset Overview
+
+Official birth registration data maintained by the civil registry office.
+
+**Purpose**: Record and manage birth registrations for legal identity
+
+**Business Context**:
+- Primary use: Legal identity establishment and vital statistics
+- Secondary use: Demographic analysis and census support
+- Stakeholders: Registry offices, Ministry of Interior, Citizens
+
+## Subject: Registered Person
+**Description**: The individual whose birth is being registered
+
+### Column: national_id
+**Type**: identifier
+**Description**: Unique national citizen identifier
+**Constraints**:
+  - required: true
+  - unique: true
+**Examples**: CID-2024-001234, CID-2024-005678
+
+### Column: given_name
+**Type**: text
+**Description**: Given name of the registered person
+**Constraints**:
+  - required: true
+**Examples**: María, Carlos, Ana
+
+### Column: family_name
+**Type**: text
+**Description**: Family name (surname) of the registered person
+**Constraints**:
+  - required: true
+**Examples**: García, López, Martínez
+
+### Column: date_of_birth
+**Type**: date
+**Description**: Date of birth
+**Constraints**:
+  - required: true
+  - format: "YYYY-MM-DD"
+**Examples**: 2024-03-15, 2024-07-22
+
+### Column: sex
+**Type**: text
+**Description**: Biological sex as recorded at birth
+**Enumeration**:
+  - male: Male
+  - female: Female
+  - indeterminate: Indeterminate
+**Constraints**:
+  - required: true
+**Examples**: male, female
+
+## Provider: Registry Office
+**Description**: The government office that maintains this birth record
+
+### Column: office_name
+**Type**: text
+**Description**: Official name of the civil registry office
+**Constraints**:
+  - required: true
+**Examples**: Central Registry Office, District 5 Registry
+
+### Column: office_code
+**Type**: identifier
+**Description**: Unique identifier for the registry office
+**Constraints**:
+  - required: true
+**Examples**: REG-001, REG-042
+
+### Column: jurisdiction
+**Type**: text
+**Description**: Geographic jurisdiction of the registry office
+**Examples**: Central District, Northern Province
+
+## Participation: Registrar
+**Description**: The civil officer who processed and recorded the birth registration
+**Function**: Civil Registrar
+**Function Description**: Officer authorized by law to record civil events
+**Mode**: In Person
+
+### Column: officer_id
+**Type**: identifier
+**Description**: Employee identifier of the registrar
+**Constraints**:
+  - required: true
+**Examples**: OFF-1234, OFF-5678
+
+### Column: officer_name
+**Type**: text
+**Description**: Full name of the registrar
+**Constraints**:
+  - required: true
+**Examples**: Elena Rodríguez, Miguel Fernández
+
+## Participation: Declarant
+**Description**: The person who declared the birth to the registry office
+**Function**: Birth Declarant
+**Function Description**: Parent or authorized person declaring the birth
+**Mode**: In Person
+
+### Column: declarant_name
+**Type**: text
+**Description**: Full name of the person declaring the birth
+**Constraints**:
+  - required: true
+**Examples**: José García López, Carmen Martínez Ruiz
+
+### Column: relationship
+**Type**: text
+**Description**: Relationship of declarant to the registered person
+**Enumeration**:
+  - mother: Mother
+  - father: Father
+  - legal_guardian: Legal Guardian
+  - authorized_representative: Authorized Representative
+**Constraints**:
+  - required: true
+**Examples**: mother, father
+
+## Root Cluster: Birth Record Data
+
+Core birth registration data and administrative details.
+
+**Purpose**: Official record of the birth event
+**Business Context**: Legal document for vital statistics and identity
+
+### Column: registration_number
+**Type**: identifier
+**Description**: Unique registration number for this birth record
+**Constraints**:
+  - required: true
+  - unique: true
+**Examples**: BR-2024-001234, BR-2024-005678
+
+### Column: registration_date
+**Type**: date
+**Description**: Date the birth was officially registered
+**Constraints**:
+  - required: true
+  - format: "YYYY-MM-DD"
+**Business Rules**: Must be on or after the date of birth
+**Examples**: 2024-03-20, 2024-08-01
+
+### Column: place_of_birth
+**Type**: text
+**Description**: Location where the birth occurred
+**Constraints**:
+  - required: true
+**Examples**: City General Hospital, Home - 123 Oak Street
+
+### Column: birth_type
+**Type**: text
+**Description**: Type of birth (single or multiple)
+**Enumeration**:
+  - single: Single birth
+  - twin: Twin birth
+  - triplet: Triplet birth
+  - other_multiple: Other multiple birth
+**Examples**: single, twin
+```
+
+**This produces a DM with:**
+- `subject` → Party "Registered Person" with details Cluster (5 demographic components)
+- `provider` → Party "Registry Office" with details Cluster (3 components)
+- `participations` → [Participation "Registrar", Participation "Declarant"] each with performer details
+- `data` → Cluster "Birth Record Data" (4 components for the registration event itself)
+
+---
+
+## PART 12: LLM Generation Guidelines
 
 ### Step-by-Step Process
 
@@ -1677,6 +1958,7 @@ When a user provides a form or form description, follow these steps:
 - Note any hierarchical structure
 - Identify field types (text, number, date, checkbox, etc.)
 - Look for enumerated values (dropdowns, radio buttons, checkboxes)
+- **Identify participants**: Is there a clear subject (patient, applicant, citizen)? A provider (hospital, agency)? Other participants (registrar, physician)?
 
 **2. Create YAML Front Matter**
 - Generate an appropriate dataset name (in source language if not English)
@@ -1690,12 +1972,19 @@ When a user provides a form or form description, follow these steps:
 - Identify stakeholders and use cases
 - Use source language for all text
 
-**4. Create Root Cluster**
-- Name it appropriately based on the form's main content
+**4. Identify Subject/Provider/Participation (if applicable)**
+- If the form has a clear "about whom" (patient, applicant, citizen) → create `## Subject:` section
+- If the form identifies who maintains the data (hospital, agency, office) → create `## Provider:` section
+- If the form identifies other participants (registrar, physician, inspector) → create `## Participation:` sections
+- Place demographic/identity fields (names, IDs, birth dates) under the appropriate party section, NOT the Root Cluster
+- Skip this step if the form is purely data-focused with no clear actors
+
+**5. Create Root Cluster**
+- Name it appropriately based on the form's main content (the data payload, not the participants)
 - Provide purpose and business context
 - Use source language for names and descriptions
 
-**5. Convert Each Form Field to a Column**
+**6. Convert Each Form Field to a Column**
 - Use field label as column name (convert to lowercase_with_underscores)
 - Map field type to appropriate SDC4 type
 - Write detailed description in source language
@@ -1703,12 +1992,12 @@ When a user provides a form or form description, follow these steps:
 - Include enumeration if field has fixed options
 - Provide realistic examples in source language
 
-**6. Organize with Sub-Clusters**
+**7. Organize with Sub-Clusters**
 - Group related fields into sub-clusters
 - Use form sections as guidance
 - Create hierarchical structure if form has multiple levels
 
-**7. Review and Validate**
+**8. Review and Validate**
 - Ensure all REQUIRED keywords are present (Type, Description, Examples)
 - Verify all keywords are in English
 - Check that content is in source language
@@ -1772,7 +2061,7 @@ When a user provides a form or form description, follow these steps:
 
 ---
 
-## PART 12: Quality Checklist
+## PART 13: Quality Checklist
 
 Before providing the template to the user, verify:
 
@@ -1780,12 +2069,15 @@ Before providing the template to the user, verify:
 - [ ] YAML front matter present with `template_version: "4.0.0"`
 - [ ] Dataset Overview section with Purpose and Business Context
 - [ ] At least one Root Cluster defined
-- [ ] All columns are under a cluster (Root or Sub-Cluster)
+- [ ] All data columns are under a cluster (Root or Sub-Cluster)
+- [ ] Subject/Provider/Participation sections used when form has clear actors (optional but recommended)
+- [ ] Demographic fields (names, IDs, birth dates) placed under Subject, not Root Cluster (when Subject is used)
+- [ ] No more than one `## Subject:` and one `## Provider:` section
 
 **Keywords (English):**
 - [ ] All keywords use English (Type, Description, Enumeration, etc.)
 - [ ] All data types in English (text, integer, date, etc.)
-- [ ] All structural keywords in English (Column:, Root Cluster:, etc.)
+- [ ] All structural keywords in English (Column:, Root Cluster:, Subject:, Provider:, Participation:, etc.)
 
 **Content (Source Language):**
 - [ ] Column names in source language (or English if form is English)
@@ -1813,7 +2105,7 @@ Before providing the template to the user, verify:
 
 ---
 
-## PART 13: Example Interaction
+## PART 14: Example Interaction
 
 **User Input:**
 "Create a template for a patient intake form with fields for: patient ID, full name, date of birth, gender (male/female/other), email, phone, emergency contact name, and emergency contact phone."
@@ -1931,11 +2223,12 @@ You now have everything needed to generate SDCStudio templates:
 
 1. **YAML Front Matter** - Always start with this
 2. **Dataset Overview** - Explain the purpose
-3. **Root Cluster** - Primary data grouping
-4. **Columns** - Individual fields with Type, Description, Examples, and optional constraints
-5. **Sub-Clusters** - Nested groupings for related fields
-6. **Language Rules** - Keywords in English, content in source language
-7. **Quality Checklist** - Validate before providing to user
+3. **Subject/Provider/Participation** - Model who is involved (optional but recommended when actors exist)
+4. **Root Cluster** - Primary data grouping (the "what")
+5. **Columns** - Individual fields with Type, Description, Examples, and optional constraints
+6. **Sub-Clusters** - Nested groupings for related fields
+7. **Language Rules** - Keywords in English, content in source language
+8. **Quality Checklist** - Validate before providing to user
 
 **Remember:**
 - Keywords MUST be in English
@@ -1945,5 +2238,7 @@ You now have everything needed to generate SDCStudio templates:
 - Add units for numeric quantities
 - Use enumeration for categorical fields
 - Provide realistic, source-language examples
+- Use Subject/Provider/Participation sections when the form has identifiable actors
+- Keep demographic data (names, IDs, birth dates) in Subject section, not in Root Cluster
 
 Generate templates that are clear, complete, and ready to upload to SDCStudio!

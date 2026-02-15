@@ -17,6 +17,14 @@ aligned with SDC Generation 4.
 ## [Unreleased]
 
 ### Added
+- **Subject/Provider/Participation sections** for SDC4 participation model support
+  - `## Subject:` section for defining who the record is about (patient, citizen, vessel)
+  - `## Provider:` section for defining who provided the data (hospital, registry office)
+  - `## Participation:` sections for other involved parties (registrar, physician)
+  - Participation-specific keywords: `**Function**:`, `**Function Description**:`, `**Mode**:`, `**Mode Description**:`
+  - Complete civil registry example (Example 6) demonstrating all three section types
+  - Updated LLM generation guidelines with participant identification step
+  - Updated quality checklist with participation section validation
 - Brazilian Portuguese (pt-BR) example templates
   - Healthcare: SUS Patient Registration with CNS, CPF, Brazilian states
   - Government: CPF Application form with Receita Federal requirements
