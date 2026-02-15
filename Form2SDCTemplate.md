@@ -2217,6 +2217,79 @@ Emergency contact person information.
 
 ---
 
+## PART 15: SDCStudio Component Catalog API
+
+If you have HTTP/tool access, you can query SDCStudio's public component catalog to find reusable components instead of guessing `@Project:Label` references.
+
+### Endpoint
+
+```
+GET {server_url}/api/v1/catalog/components/
+```
+
+### Authentication
+
+Optional. Anonymous access is allowed with rate limits (200 requests/hour). To get higher limits (2000/hour), include the header:
+
+```
+Authorization: Token <api_key>
+```
+
+### Query Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `search` | Text search across label and description | `?search=gender` |
+| `type` | Filter by component type | `?type=XdString` |
+| `project` | Filter by project name | `?project=NIEM` |
+
+Parameters can be combined: `?search=code&type=XdToken&project=NIEM`
+
+### Available Component Types
+
+XdString, XdBoolean, XdCount, XdQuantity, XdFloat, XdDouble, XdOrdinal, XdTemporal, XdLink, XdFile, XdToken, Cluster, Units, Party, Participation, Audit, Attestation, XdInterval, ReferenceRange, SimpleReferenceRange
+
+### Response Format
+
+```json
+{
+    "count": 42,
+    "page": 1,
+    "page_size": 50,
+    "results": [
+        {
+            "ct_id": "ct_abc123",
+            "label": "StateUSPostalServiceCode",
+            "description": "US state postal codes",
+            "component_type": "XdToken",
+            "project_name": "NIEM",
+            "reuse_ref": "@NIEM:StateUSPostalServiceCode"
+        }
+    ]
+}
+```
+
+### Usage in Template Generation
+
+When building a template, search the catalog for relevant components before creating new ones. Use the `reuse_ref` value directly in `**ReuseComponent**:` fields.
+
+**Example workflow:**
+1. User describes a form with a "State" dropdown field
+2. Search the catalog: `GET /api/v1/catalog/components/?search=state&type=XdToken`
+3. Find `@NIEM:StateUSPostalServiceCode` in results
+4. Use it in the template:
+
+```markdown
+### Column: state
+**Type**: identifier
+**Description**: US state selection
+**ReuseComponent**: @NIEM:StateUSPostalServiceCode
+```
+
+This avoids creating a duplicate component and leverages existing, validated definitions.
+
+---
+
 ## Summary
 
 You now have everything needed to generate SDCStudio templates:
@@ -2229,6 +2302,7 @@ You now have everything needed to generate SDCStudio templates:
 6. **Sub-Clusters** - Nested groupings for related fields
 7. **Language Rules** - Keywords in English, content in source language
 8. **Quality Checklist** - Validate before providing to user
+9. **Catalog API** - Query published components for reuse (if HTTP access available)
 
 **Remember:**
 - Keywords MUST be in English
