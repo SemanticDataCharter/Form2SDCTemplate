@@ -35,7 +35,6 @@ class ColumnType(str, Enum):
     XDDOUBLE = "XdDouble"
     XDBOOLEAN = "XdBoolean"
     XDTEMPORAL = "XdTemporal"
-    XDIDENTIFIER = "XdIdentifier"  # Alias → mapped to XdString by template builder
     XDLINK = "XdLink"
     XDFILE = "XdFile"
     CLUSTER = "Cluster"
@@ -58,11 +57,7 @@ FRIENDLY_TO_SDC4: dict[str, str] = {
 
 def resolve_sdc4_type(column_type: str) -> str:
     """Resolve a user-friendly or explicit type name to its SDC4 type."""
-    resolved = FRIENDLY_TO_SDC4.get(column_type, column_type)
-    # XdIdentifier is not a valid SDC4 output type — map to XdString
-    if resolved == "XdIdentifier":
-        return "XdString"
-    return resolved
+    return FRIENDLY_TO_SDC4.get(column_type, column_type)
 
 
 class Constraint(BaseModel):
