@@ -18,6 +18,16 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.7] - 2026-02-19
+
+### Changed
+- Replace google-genai SDK with direct Gemini REST API calls (urllib)
+- Completely eliminates SDK's process_schema RecursionError on self-referential models
+- google-genai is no longer a runtime dependency (kept as optional extra)
+- Install cell now prints installed version and clears module cache
+
+---
+
 ## [4.2.6] - 2026-02-19
 
 ### Fixed

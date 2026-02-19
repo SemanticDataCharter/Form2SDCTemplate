@@ -5,13 +5,21 @@ Gemini-first with a thin FormAnalyzer protocol for swappability.
 
 from __future__ import annotations
 
+import base64
 import json
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Optional, Protocol, runtime_checkable
 
 from form2sdc.prompt_loader import load_system_prompt
 from form2sdc.types import FormAnalysis
+
+# Gemini REST API base URL
+_GEMINI_API_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models"
+)
 
 
 @runtime_checkable
@@ -40,16 +48,20 @@ class FormAnalyzer(Protocol):
 
 
 class GeminiAnalyzer:
-    """Gemini-powered form analyzer using google-genai SDK.
+    """Gemini-powered form analyzer using the REST API directly.
 
     Uses Form2SDCTemplate.md as system prompt and structured output
     to convert forms into SDC4-compliant template data.
+
+    Bypasses the google-genai SDK entirely to avoid RecursionError
+    from its process_schema on self-referential Pydantic models.
     """
 
     # MIME type detection
     _MIME_MAP = {
         ".pdf": "application/pdf",
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".docx": "application/vnd.openxmlformats-officedocument"
+                 ".wordprocessingml.document",
         ".png": "image/png",
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
@@ -71,24 +83,15 @@ class GeminiAnalyzer:
         Args:
             api_key: Google AI API key.
             model: Gemini model name.
-            system_prompt: Override for system prompt (default: load Form2SDCTemplate.md).
-            temperature: Generation temperature (low for faithful extraction).
+            system_prompt: Override for system prompt
+                (default: load Form2SDCTemplate.md).
+            temperature: Generation temperature
+                (low for faithful extraction).
         """
-        try:
-            from google import genai
-            from google.genai import types as genai_types
-        except ImportError:
-            raise ImportError(
-                "google-genai package required. Install with: "
-                "pip install 'form2sdc[gemini]'"
-            )
-
-        self._genai = genai
-        self._genai_types = genai_types
+        self._api_key = api_key
         self._model = model
         self._temperature = temperature
         self._system_prompt = system_prompt or load_system_prompt()
-        self._client = genai.Client(api_key=api_key)
 
     def analyze(
         self,
@@ -97,19 +100,18 @@ class GeminiAnalyzer:
         mime_type: Optional[str] = None,
         additional_instructions: str = "",
     ) -> FormAnalysis:
-        """Analyze a form using Gemini.
+        """Analyze a form using the Gemini REST API.
 
         Args:
             file_path: Path to form file.
             file_content: Raw file bytes.
-            mime_type: MIME type (auto-detected from file_path if not provided).
+            mime_type: MIME type (auto-detected from file_path if
+                not provided).
             additional_instructions: Extra context for analysis.
 
         Returns:
             FormAnalysis with extracted form structure.
         """
-        genai_types = self._genai_types
-
         # Prepare file content
         if file_path is not None:
             file_path = Path(file_path)
@@ -121,56 +123,105 @@ class GeminiAnalyzer:
                 )
 
         if file_content is None:
-            raise ValueError("Either file_path or file_content must be provided")
+            raise ValueError(
+                "Either file_path or file_content must be provided"
+            )
 
         if mime_type is None:
             mime_type = "application/octet-stream"
 
-        # Build prompt parts
-        parts = [
-            genai_types.Part.from_bytes(data=file_content, mime_type=mime_type),
-        ]
-
-        # Include the JSON schema in the prompt so Gemini knows the
-        # target structure.  We avoid response_schema= entirely because
-        # the google-genai SDK's process_schema recurses too deeply on
-        # the nested ClusterDefinition model and hits Python's limit.
+        # Build the JSON schema for the prompt
         schema_json = json.dumps(
             FormAnalysis.model_json_schema(), indent=2
         )
 
         user_prompt = (
             "Analyze this form and extract its structure. "
-            "Identify all fields, their data types, constraints, and relationships. "
-            "Create appropriate clusters and sub-clusters for logical groupings.\n\n"
-            "Return ONLY a JSON object (no markdown fences, no commentary) "
-            "conforming to this schema:\n"
+            "Identify all fields, their data types, constraints, "
+            "and relationships. "
+            "Create appropriate clusters and sub-clusters for "
+            "logical groupings.\n\n"
+            "Return ONLY a JSON object (no markdown fences, "
+            "no commentary) conforming to this schema:\n"
             f"{schema_json}"
         )
         if additional_instructions:
-            user_prompt += f"\n\nAdditional instructions: {additional_instructions}"
+            user_prompt += (
+                f"\n\nAdditional instructions: "
+                f"{additional_instructions}"
+            )
 
-        parts.append(genai_types.Part.from_text(text=user_prompt))
+        # Build REST API request body
+        file_b64 = base64.standard_b64encode(file_content).decode("ascii")
 
-        # Avoid response_mime_type="application/json" AND response_schema=
-        # because the google-genai SDK's process_schema recurses infinitely
-        # on the self-referential ClusterDefinition model.  We ask for JSON
-        # in the prompt and parse it from the plain-text response instead.
-        response = self._client.models.generate_content(
-            model=self._model,
-            contents=parts,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=self._system_prompt,
-                temperature=self._temperature,
-            ),
+        request_body = {
+            "systemInstruction": {
+                "parts": [{"text": self._system_prompt}],
+            },
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "inlineData": {
+                                "mimeType": mime_type,
+                                "data": file_b64,
+                            },
+                        },
+                        {"text": user_prompt},
+                    ],
+                },
+            ],
+            "generationConfig": {
+                "temperature": self._temperature,
+                "responseMimeType": "application/json",
+            },
+        }
+
+        # Call the Gemini REST API directly (no SDK)
+        url = (
+            f"{_GEMINI_API_URL}/{self._model}:generateContent"
+            f"?key={self._api_key}"
+        )
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(request_body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
         )
 
-        # Extract JSON from response (strip markdown fences if present)
-        result_text = response.text.strip()
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                response_data = json.loads(
+                    resp.read().decode("utf-8")
+                )
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"Gemini API error {e.code}: {body}"
+            ) from e
+
+        # Extract text from response
+        try:
+            result_text = (
+                response_data["candidates"][0]["content"]
+                ["parts"][0]["text"]
+            )
+        except (KeyError, IndexError) as e:
+            raise RuntimeError(
+                f"Unexpected Gemini response format: "
+                f"{json.dumps(response_data, indent=2)[:500]}"
+            ) from e
+
+        # Strip markdown fences if present
+        result_text = result_text.strip()
         fence_match = re.search(
-            r"```(?:json)?\s*\n(.*?)\n\s*```", result_text, re.DOTALL
+            r"```(?:json)?\s*\n(.*?)\n\s*```",
+            result_text,
+            re.DOTALL,
         )
         if fence_match:
             result_text = fence_match.group(1)
+
+        # Parse and validate with Pydantic
         result_data = json.loads(result_text)
         return FormAnalysis.model_validate(result_data)
