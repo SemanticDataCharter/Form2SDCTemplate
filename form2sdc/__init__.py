@@ -1,6 +1,6 @@
 """form2sdc - Convert forms to SDC4-compliant templates."""
 
-__version__ = "4.2.9"
+__version__ = "4.3.0"
 
 from form2sdc.types import (
     ColumnType,
@@ -9,6 +9,8 @@ from form2sdc.types import (
     ColumnDefinition,
     ClusterDefinition,
     PartyDefinition,
+    AttestationDefinition,
+    AuditDefinition,
     FormAnalysis,
 )
 from form2sdc.validator import Form2SDCValidator, ValidationResult, ValidationIssue
@@ -21,6 +23,8 @@ __all__ = [
     "ColumnDefinition",
     "ClusterDefinition",
     "PartyDefinition",
+    "AttestationDefinition",
+    "AuditDefinition",
     "FormAnalysis",
     "Form2SDCValidator",
     "ValidationResult",

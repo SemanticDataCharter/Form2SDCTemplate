@@ -4,6 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from form2sdc.types import (
+    AttestationDefinition,
+    AuditDefinition,
     ColumnDefinition,
     ColumnType,
     ClusterDefinition,
@@ -141,9 +143,8 @@ class TestClusterDefinition:
         cluster = ClusterDefinition(name="Root")
         assert cluster.name == "Root"
         assert cluster.columns == []
-        assert cluster.sub_clusters == []
 
-    def test_nested_cluster(self):
+    def test_cluster_with_columns(self):
         cluster = ClusterDefinition(
             name="Patient Record",
             description="All patient data",
@@ -152,21 +153,14 @@ class TestClusterDefinition:
                     name="name", column_type=ColumnType.TEXT
                 )
             ],
-            sub_clusters=[
-                ClusterDefinition(
-                    name="Contact Info",
-                    parent="Patient Record",
-                    columns=[
-                        ColumnDefinition(
-                            name="email", column_type=ColumnType.EMAIL
-                        )
-                    ],
-                )
-            ],
         )
         assert len(cluster.columns) == 1
-        assert len(cluster.sub_clusters) == 1
-        assert cluster.sub_clusters[0].parent == "Patient Record"
+
+    def test_no_sub_clusters_field(self):
+        """ClusterDefinition should not have sub_clusters or parent."""
+        cluster = ClusterDefinition(name="Root")
+        assert not hasattr(cluster, "sub_clusters")
+        assert not hasattr(cluster, "parent")
 
 
 class TestPartyDefinition:
@@ -194,16 +188,61 @@ class TestPartyDefinition:
         assert party.mode == "In-Person"
 
 
+class TestAttestationDefinition:
+    """Test AttestationDefinition model."""
+
+    def test_minimal(self):
+        att = AttestationDefinition(name="Signature")
+        assert att.name == "Signature"
+        assert att.view is None
+        assert att.proof is None
+        assert att.reason is None
+
+    def test_full(self):
+        att = AttestationDefinition(
+            name="Clinical Attestation",
+            view="application/pdf",
+            proof="application/pkcs7-signature",
+            reason="Treatment authorization",
+            committer="Dr. Smith",
+        )
+        assert att.view == "application/pdf"
+        assert att.proof == "application/pkcs7-signature"
+        assert att.reason == "Treatment authorization"
+        assert att.committer == "Dr. Smith"
+
+
+class TestAuditDefinition:
+    """Test AuditDefinition model."""
+
+    def test_minimal(self):
+        audit = AuditDefinition(name="System Audit")
+        assert audit.name == "System Audit"
+        assert audit.system_id is None
+
+    def test_full(self):
+        audit = AuditDefinition(
+            name="EHR Audit",
+            system_id="ehr-prod-01",
+            system_user="nurse.jones",
+            location="Ward 3B",
+        )
+        assert audit.system_id == "ehr-prod-01"
+        assert audit.system_user == "nurse.jones"
+        assert audit.location == "Ward 3B"
+
+
 class TestFormAnalysis:
     """Test FormAnalysis model."""
 
     def test_minimal_analysis(self):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(name="Root"),
+            data=ClusterDefinition(name="Root"),
         )
         assert analysis.dataset_name == "Test"
         assert analysis.source_language == "English"
+        assert analysis.data.name == "Root"
 
     def test_full_analysis(self):
         analysis = FormAnalysis(
@@ -213,9 +252,9 @@ class TestFormAnalysis:
             creator="Clinical Team",
             source_language="English",
             purpose="Record patient demographics",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Patient Record",
-                description="Root cluster",
+                description="Data cluster",
                 columns=[
                     ColumnDefinition(
                         name="Full Name",
@@ -232,4 +271,35 @@ class TestFormAnalysis:
         )
         assert analysis.domain == "Healthcare"
         assert analysis.subject.name == "Patient"
-        assert len(analysis.root_cluster.columns) == 1
+        assert len(analysis.data.columns) == 1
+
+    def test_all_8_trees(self):
+        """FormAnalysis supports all 8 SDC4 named trees."""
+        analysis = FormAnalysis(
+            dataset_name="Full SDC4",
+            data=ClusterDefinition(name="Data"),
+            subject=PartyDefinition(
+                name="Patient", party_type="subject"
+            ),
+            provider=PartyDefinition(
+                name="Hospital", party_type="provider"
+            ),
+            participations=[
+                PartyDefinition(
+                    name="Physician", party_type="participation"
+                )
+            ],
+            workflow=ClusterDefinition(name="Status Tracking"),
+            attestation=AttestationDefinition(name="Signature"),
+            audit=[AuditDefinition(name="System Log")],
+            links=["https://example.com/ontology"],
+        )
+        assert analysis.workflow.name == "Status Tracking"
+        assert analysis.attestation.name == "Signature"
+        assert len(analysis.audit) == 1
+        assert analysis.links == ["https://example.com/ontology"]
+
+    def test_data_field_required(self):
+        """data field is required (was root_cluster)."""
+        with pytest.raises(ValidationError):
+            FormAnalysis(dataset_name="Test")
