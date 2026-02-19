@@ -1,6 +1,6 @@
 """form2sdc - Convert forms to SDC4-compliant templates."""
 
-__version__ = "4.2.2"
+__version__ = "4.2.3"
 
 from form2sdc.types import (
     ColumnType,
