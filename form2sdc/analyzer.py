@@ -5,12 +5,61 @@ Gemini-first with a thin FormAnalyzer protocol for swappability.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
-from typing import Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from form2sdc.prompt_loader import load_system_prompt
 from form2sdc.types import FormAnalysis
+
+
+def _resolve_refs(
+    schema: dict[str, Any],
+    defs: dict[str, Any],
+    ref_depth: int = 0,
+    max_ref_depth: int = 3,
+) -> dict[str, Any]:
+    """Resolve $ref and $defs in a JSON Schema to a flat dict.
+
+    The google-genai SDK's process_schema hits infinite recursion on
+    self-referential models (ClusterDefinition.sub_clusters). This
+    inlines $ref entries up to max_ref_depth, then drops the recursive
+    field to break the cycle. Only $ref resolutions count toward depth.
+    """
+    if "$ref" in schema:
+        if ref_depth >= max_ref_depth:
+            return {"type": "object", "properties": {}}
+        ref_name = schema["$ref"].rsplit("/", 1)[-1]
+        if ref_name in defs:
+            return _resolve_refs(
+                copy.deepcopy(defs[ref_name]), defs, ref_depth + 1, max_ref_depth
+            )
+        return schema
+
+    result = {}
+    for key, value in schema.items():
+        if key == "$defs":
+            continue
+        if isinstance(value, dict):
+            result[key] = _resolve_refs(value, defs, ref_depth, max_ref_depth)
+        elif isinstance(value, list):
+            result[key] = [
+                _resolve_refs(item, defs, ref_depth, max_ref_depth)
+                if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            result[key] = value
+
+    return result
+
+
+def _flatten_schema(model_class: type) -> dict[str, Any]:
+    """Generate a flat JSON Schema from a Pydantic model, resolving all $refs."""
+    raw = model_class.model_json_schema()
+    defs = raw.get("$defs", {})
+    return _resolve_refs(raw, defs)
 
 
 @runtime_checkable
@@ -141,6 +190,10 @@ class GeminiAnalyzer:
         parts.append(genai_types.Part.from_text(text=user_prompt))
 
         # Generate structured output
+        # Use flattened schema to avoid RecursionError in google-genai SDK
+        # caused by self-referential ClusterDefinition.sub_clusters
+        flat_schema = _flatten_schema(FormAnalysis)
+
         response = self._client.models.generate_content(
             model=self._model,
             contents=parts,
@@ -148,7 +201,7 @@ class GeminiAnalyzer:
                 system_instruction=self._system_prompt,
                 temperature=self._temperature,
                 response_mime_type="application/json",
-                response_schema=FormAnalysis,
+                response_schema=flat_schema,
             ),
         )
 
