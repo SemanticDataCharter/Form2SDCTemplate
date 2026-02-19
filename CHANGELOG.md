@@ -18,6 +18,15 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.9] - 2026-02-19
+
+### Fixed
+- Map XdIdentifier → XdString in template builder (XdIdentifier is not a valid SDC4 output type)
+- Always emit **Type** before **ReuseComponent** (builder was skipping Type on reuse components)
+- Map "identifier" friendly type to XdString instead of XdIdentifier
+
+---
+
 ## [4.2.8] - 2026-02-19
 
 ### Fixed

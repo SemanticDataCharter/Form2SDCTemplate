@@ -35,7 +35,6 @@ class ColumnType(str, Enum):
     XDDOUBLE = "XdDouble"
     XDBOOLEAN = "XdBoolean"
     XDTEMPORAL = "XdTemporal"
-    XDIDENTIFIER = "XdIdentifier"
     XDLINK = "XdLink"
     XDFILE = "XdFile"
     CLUSTER = "Cluster"
@@ -50,7 +49,7 @@ FRIENDLY_TO_SDC4: dict[str, str] = {
     "date": "XdTemporal",
     "datetime": "XdTemporal",
     "time": "XdTemporal",
-    "identifier": "XdIdentifier",
+    "identifier": "XdString",
     "email": "XdString",
     "url": "XdLink",
 }

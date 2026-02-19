@@ -160,19 +160,13 @@ class TemplateBuilder:
         hashes = "#" * level
         lines = [f"{hashes} {col.name}", ""]
 
-        # Reuse component shortcut
-        if col.reuse_component:
-            lines.append(f"**ReuseComponent**: {col.reuse_component}")
-            if col.description:
-                lines.append(f"**Description**: {col.description}")
-            if col.examples:
-                lines.append(f"**Examples**: {', '.join(col.examples)}")
-            lines.append("")
-            return "\n".join(lines)
-
-        # Type (mapped to SDC4)
+        # Type (mapped to SDC4) — always first
         sdc4_type = resolve_sdc4_type(col.column_type.value)
         lines.append(f"**Type**: {sdc4_type}")
+
+        # Reuse component reference (after Type)
+        if col.reuse_component:
+            lines.append(f"**ReuseComponent**: {col.reuse_component}")
 
         # Description
         if col.description:
