@@ -391,7 +391,7 @@ If you need precise control, use explicit SDC4 types:
 | `XdDouble` | High-precision decimals | Scientific measurements, coordinates |
 | `XdBoolean` | Boolean | True/false, yes/no |
 | `XdTemporal` | Dates/times | Any date, time, or datetime |
-| `XdIdentifier` | Identifiers | IDs, codes, keys |
+| `XdString` | Identifiers | IDs, codes, keys |
 | `XdLink` | URLs | Web links, references |
 | `XdFile` | File references | File uploads, attachments |
 
@@ -400,7 +400,7 @@ If you need precise control, use explicit SDC4 types:
 The system uses context clues to choose the correct SDC4 type:
 
 **Name Patterns (Highest Priority):**
-- Columns ending in `_id`, `_code`, `_key` → `XdIdentifier`
+- Columns ending in `_id`, `_code`, `_key` → `XdString`
 - Columns ending in `_url`, `_link` → `XdLink`
 - Columns starting with `is_`, `has_`, or ending in `_flag` → `XdBoolean`
 - Columns ending in `_date`, `_at`, or named `created`, `updated` → `XdTemporal`
@@ -408,7 +408,7 @@ The system uses context clues to choose the correct SDC4 type:
 **Context-Based Mapping:**
 - `integer` + units → `XdCount`
 - `integer` + enumeration → `XdOrdinal`
-- `integer` + name pattern `*_id` → `XdIdentifier`
+- `integer` + name pattern `*_id` → `XdString`
 - `decimal` + units → `XdQuantity`
 - `decimal` + precision: 2 → `XdQuantity` (currency-like)
 - `decimal` + precision: >10 → `XdDouble` (high precision)

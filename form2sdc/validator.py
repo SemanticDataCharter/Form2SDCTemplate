@@ -75,7 +75,7 @@ TYPE_SUGGESTIONS = [
     (re.compile(r"(?i)(date|time|created|updated|birth)"), "XdTemporal"),
     (re.compile(r"(?i)(status|level|grade|severity|priority)"), "XdOrdinal"),
     (re.compile(r"(?i)(^is_|^has_|enabled|active|flag)"), "XdBoolean"),
-    (re.compile(r"(?i)(_id$|_code$|_key$|identifier)"), "XdIdentifier"),
+    (re.compile(r"(?i)(_id$|_code$|_key$|identifier)"), "XdString"),
     (re.compile(r"(?i)(_url$|_link$|website|homepage)"), "XdLink"),
 ]
 
