@@ -18,6 +18,14 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.5] - 2026-02-19
+
+### Fixed
+- Add --upgrade flag to Colab notebook pip install to prevent stale package caching
+- Colab was caching older versions that still had the RecursionError-triggering response_schema
+
+---
+
 ## [4.2.4] - 2026-02-19
 
 ### Fixed
