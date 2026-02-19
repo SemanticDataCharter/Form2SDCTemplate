@@ -18,6 +18,17 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.4] - 2026-02-19
+
+### Fixed
+- Fix RecursionError: drop response_schema entirely, pass JSON Schema in prompt instead
+- The google-genai SDK's process_schema recurses too deeply even on flattened schemas
+
+### Removed
+- Remove _resolve_refs/_flatten_schema (no longer needed without response_schema)
+
+---
+
 ## [4.2.3] - 2026-02-19
 
 ### Fixed
@@ -187,6 +198,7 @@ aligned with SDC Generation 4.
 
 | Version | Release Date | Major Changes |
 |---------|-------------|---------------|
+| 4.2.4   | 2026-02-19  | Fix RecursionError — prompt-based schema instead of response_schema |
 | 4.2.3   | 2026-02-19  | Fix RecursionError in Gemini schema processing |
 | 4.2.2   | 2026-02-19  | Notebook restructure, SDCStudio catalog integration |
 | 4.2.1   | 2026-02-19  | PyPI packaging fix, CI test workflow |
@@ -311,7 +323,8 @@ See [GitHub Contributors](https://github.com/SemanticDataCharter/Form2SDCTemplat
 
 *For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)*
 
-[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.3...HEAD
+[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.4...HEAD
+[4.2.4]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.3...v4.2.4
 [4.2.3]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.2...v4.2.3
 [4.2.2]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.1...v4.2.2
 [4.2.1]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.0...v4.2.1

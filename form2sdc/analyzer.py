@@ -5,61 +5,12 @@ Gemini-first with a thin FormAnalyzer protocol for swappability.
 
 from __future__ import annotations
 
-import copy
 import json
 from pathlib import Path
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Optional, Protocol, runtime_checkable
 
 from form2sdc.prompt_loader import load_system_prompt
 from form2sdc.types import FormAnalysis
-
-
-def _resolve_refs(
-    schema: dict[str, Any],
-    defs: dict[str, Any],
-    ref_depth: int = 0,
-    max_ref_depth: int = 3,
-) -> dict[str, Any]:
-    """Resolve $ref and $defs in a JSON Schema to a flat dict.
-
-    The google-genai SDK's process_schema hits infinite recursion on
-    self-referential models (ClusterDefinition.sub_clusters). This
-    inlines $ref entries up to max_ref_depth, then drops the recursive
-    field to break the cycle. Only $ref resolutions count toward depth.
-    """
-    if "$ref" in schema:
-        if ref_depth >= max_ref_depth:
-            return {"type": "object", "properties": {}}
-        ref_name = schema["$ref"].rsplit("/", 1)[-1]
-        if ref_name in defs:
-            return _resolve_refs(
-                copy.deepcopy(defs[ref_name]), defs, ref_depth + 1, max_ref_depth
-            )
-        return schema
-
-    result = {}
-    for key, value in schema.items():
-        if key == "$defs":
-            continue
-        if isinstance(value, dict):
-            result[key] = _resolve_refs(value, defs, ref_depth, max_ref_depth)
-        elif isinstance(value, list):
-            result[key] = [
-                _resolve_refs(item, defs, ref_depth, max_ref_depth)
-                if isinstance(item, dict) else item
-                for item in value
-            ]
-        else:
-            result[key] = value
-
-    return result
-
-
-def _flatten_schema(model_class: type) -> dict[str, Any]:
-    """Generate a flat JSON Schema from a Pydantic model, resolving all $refs."""
-    raw = model_class.model_json_schema()
-    defs = raw.get("$defs", {})
-    return _resolve_refs(raw, defs)
 
 
 @runtime_checkable
@@ -179,21 +130,28 @@ class GeminiAnalyzer:
             genai_types.Part.from_bytes(data=file_content, mime_type=mime_type),
         ]
 
+        # Include the JSON schema in the prompt so Gemini knows the
+        # target structure.  We avoid response_schema= entirely because
+        # the google-genai SDK's process_schema recurses too deeply on
+        # the nested ClusterDefinition model and hits Python's limit.
+        schema_json = json.dumps(
+            FormAnalysis.model_json_schema(), indent=2
+        )
+
         user_prompt = (
-            "Analyze this form and extract its structure into a FormAnalysis object. "
+            "Analyze this form and extract its structure. "
             "Identify all fields, their data types, constraints, and relationships. "
-            "Create appropriate clusters and sub-clusters for logical groupings."
+            "Create appropriate clusters and sub-clusters for logical groupings.\n\n"
+            "Return your response as a single JSON object conforming to this schema:\n"
+            f"```json\n{schema_json}\n```"
         )
         if additional_instructions:
             user_prompt += f"\n\nAdditional instructions: {additional_instructions}"
 
         parts.append(genai_types.Part.from_text(text=user_prompt))
 
-        # Generate structured output
-        # Use flattened schema to avoid RecursionError in google-genai SDK
-        # caused by self-referential ClusterDefinition.sub_clusters
-        flat_schema = _flatten_schema(FormAnalysis)
-
+        # Request JSON output without response_schema to avoid SDK
+        # RecursionError on deeply nested Pydantic models
         response = self._client.models.generate_content(
             model=self._model,
             contents=parts,
@@ -201,11 +159,10 @@ class GeminiAnalyzer:
                 system_instruction=self._system_prompt,
                 temperature=self._temperature,
                 response_mime_type="application/json",
-                response_schema=flat_schema,
             ),
         )
 
-        # Parse response
+        # Parse and validate with Pydantic
         result_text = response.text
         result_data = json.loads(result_text)
         return FormAnalysis.model_validate(result_data)
