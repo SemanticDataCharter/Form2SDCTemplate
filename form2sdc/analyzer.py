@@ -190,7 +190,7 @@ class GeminiAnalyzer:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=600) as resp:
                 response_data = json.loads(
                     resp.read().decode("utf-8")
                 )

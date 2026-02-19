@@ -18,6 +18,13 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.8] - 2026-02-19
+
+### Fixed
+- Increase Gemini REST API timeout from 300s to 600s for large requests with catalog reuse context
+
+---
+
 ## [4.2.7] - 2026-02-19
 
 ### Changed
