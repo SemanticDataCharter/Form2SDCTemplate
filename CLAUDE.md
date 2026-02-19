@@ -119,6 +119,64 @@ Form2SDCTemplate generates templates for the Semantic Data Charter Generation 4 
 
 ---
 
+## Development Workflow
+
+Form2SDCTemplate uses a **two-branch workflow** for safe development and release.
+
+### Branch Strategy
+
+- **`main` branch**: Production/release code
+  - Protected branch (requires PR for changes, no direct pushes)
+  - Tagged releases and PyPI publishes come from `main`
+  - Must always be stable and publishable
+
+- **`dev` branch**: Active development
+  - All feature development starts here
+  - Feature branches are created from `dev` and merged back to `dev`
+  - Integration testing happens on `dev`
+
+### Workflow Process
+
+**Standard Development Flow**:
+1. Create a feature branch from `dev`: `git checkout -b feature/my-feature dev`
+2. Develop and test locally (`pytest tests/ -v`)
+3. Push feature branch and create PR → `dev`
+4. Review and merge to `dev`
+5. When ready for release, create PR: `dev` → `main`
+6. After merging to `main`, tag the release and publish to PyPI
+
+**Quick fixes** (typos, docs): Can be done directly on `dev` without a feature branch.
+
+### When to Use Which Branch
+
+**Use `dev` (or feature branches from `dev`) for**:
+- New features
+- Bug fixes
+- Refactoring
+- Documentation updates
+- Dependency updates
+- Any code changes
+
+**Never commit directly to `main`** — branch protection requires PRs for all changes.
+
+### Release Process
+
+```bash
+# 1. Ensure dev is up to date and tests pass
+git checkout dev
+pytest tests/ -v
+
+# 2. Create PR: dev → main (via GitHub)
+# 3. After merge, tag and publish:
+git checkout main && git pull
+git tag -a v4.x.x -m "v4.x.x - Description"
+git push origin main --tags
+python -m build && twine upload dist/form2sdc-4.x.x*
+gh release create v4.x.x --title "v4.x.x - Title" --notes "..."
+```
+
+---
+
 ## Development Guidelines
 
 ### For AI Assistants
