@@ -5,6 +5,8 @@ import pytest
 from form2sdc.template_builder import TemplateBuilder
 from form2sdc.validator import Form2SDCValidator
 from form2sdc.types import (
+    AttestationDefinition,
+    AuditDefinition,
     ClusterDefinition,
     ColumnDefinition,
     ColumnType,
@@ -31,7 +33,7 @@ class TestFrontMatter:
     def test_minimal_front_matter(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(name="Root"),
+            data=ClusterDefinition(name="Root"),
         )
         result = builder.build(analysis)
         assert '---' in result
@@ -45,7 +47,7 @@ class TestFrontMatter:
             dataset_description="A description",
             domain="Healthcare",
             creator="Test Author",
-            root_cluster=ClusterDefinition(name="Root"),
+            data=ClusterDefinition(name="Root"),
         )
         result = builder.build(analysis)
         assert 'description: "A description"' in result
@@ -53,21 +55,31 @@ class TestFrontMatter:
         assert 'domain: "Healthcare"' in result
 
 
-class TestRootCluster:
-    """Test root cluster rendering."""
+class TestDataSection:
+    """Test Data section rendering (was root cluster)."""
 
-    def test_basic_cluster(self, builder):
+    def test_basic_data_section(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Patient Record",
                 description="All patient data",
             ),
         )
         result = builder.build(analysis)
-        assert "## Patient Record" in result
+        assert "## Data: Patient Record" in result
         assert "**Type**: Cluster" in result
         assert "**Description**: All patient data" in result
+
+    def test_no_root_cluster_heading(self, builder):
+        """Ensure old '## Root Cluster' format is not used."""
+        analysis = FormAnalysis(
+            dataset_name="Test",
+            data=ClusterDefinition(name="Root"),
+        )
+        result = builder.build(analysis)
+        assert "## Root Cluster" not in result
+        assert "## Data: Root" in result
 
 
 class TestColumnRendering:
@@ -76,7 +88,7 @@ class TestColumnRendering:
     def test_string_column(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 columns=[
                     ColumnDefinition(
@@ -97,7 +109,7 @@ class TestColumnRendering:
     def test_quantified_column_with_units(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 columns=[
                     ColumnDefinition(
@@ -119,7 +131,7 @@ class TestColumnRendering:
     def test_boolean_column(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 columns=[
                     ColumnDefinition(
@@ -138,7 +150,7 @@ class TestColumnRendering:
     def test_enumeration_rendering(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 columns=[
                     ColumnDefinition(
@@ -164,7 +176,7 @@ class TestColumnRendering:
     def test_temporal_column(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 columns=[
                     ColumnDefinition(
@@ -188,7 +200,7 @@ class TestColumnRendering:
     def test_reuse_component(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 columns=[
                     ColumnDefinition(
@@ -210,7 +222,7 @@ class TestPartyRendering:
     def test_subject_section(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(name="Root"),
+            data=ClusterDefinition(name="Root"),
             subject=PartyDefinition(
                 name="Patient",
                 description="The patient being recorded",
@@ -232,7 +244,7 @@ class TestPartyRendering:
     def test_participation_with_function(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(name="Root"),
+            data=ClusterDefinition(name="Root"),
             participations=[
                 PartyDefinition(
                     name="Physician",
@@ -251,37 +263,153 @@ class TestPartyRendering:
         assert "**Mode**: In-Person" in result
 
 
-class TestSubClusters:
-    """Test sub-cluster rendering."""
+class TestWorkflowRendering:
+    """Test Workflow section rendering."""
 
-    def test_sub_cluster(self, builder):
+    def test_workflow_section(self, builder):
         analysis = FormAnalysis(
             dataset_name="Test",
-            root_cluster=ClusterDefinition(
-                name="Patient Record",
-                description="Root",
-                sub_clusters=[
-                    ClusterDefinition(
-                        name="Contact Info",
-                        description="Contact details",
-                        purpose="Store contact information",
-                        parent="Patient Record",
-                        columns=[
-                            ColumnDefinition(
-                                name="Email",
-                                column_type=ColumnType.EMAIL,
-                                description="Email address",
-                            )
-                        ],
+            data=ClusterDefinition(name="Root"),
+            workflow=ClusterDefinition(
+                name="Status Tracking",
+                description="Workflow state management",
+                columns=[
+                    ColumnDefinition(
+                        name="status",
+                        column_type=ColumnType.TEXT,
+                        description="Current workflow status",
                     )
                 ],
             ),
         )
         result = builder.build(analysis)
-        assert "## Sub-Cluster: Contact Info" in result
-        assert "**Purpose**: Store contact information" in result
-        assert "**Parent**: Patient Record" in result
-        assert "### Email" in result
+        assert "## Workflow: Status Tracking" in result
+        assert "**Description**: Workflow state management" in result
+        assert "### status" in result
+
+
+class TestAttestationRendering:
+    """Test Attestation section rendering."""
+
+    def test_attestation_section(self, builder):
+        analysis = FormAnalysis(
+            dataset_name="Test",
+            data=ClusterDefinition(name="Root"),
+            attestation=AttestationDefinition(
+                name="Clinical Signature",
+                view="application/pdf",
+                proof="application/pkcs7-signature",
+                reason="Treatment authorization",
+            ),
+        )
+        result = builder.build(analysis)
+        assert "## Attestation: Clinical Signature" in result
+        assert "**View**: application/pdf" in result
+        assert "**Proof**: application/pkcs7-signature" in result
+        assert "**Reason**: Treatment authorization" in result
+
+    def test_attestation_minimal(self, builder):
+        analysis = FormAnalysis(
+            dataset_name="Test",
+            data=ClusterDefinition(name="Root"),
+            attestation=AttestationDefinition(name="Sig"),
+        )
+        result = builder.build(analysis)
+        assert "## Attestation: Sig" in result
+
+
+class TestAuditRendering:
+    """Test Audit section rendering."""
+
+    def test_audit_section(self, builder):
+        analysis = FormAnalysis(
+            dataset_name="Test",
+            data=ClusterDefinition(name="Root"),
+            audit=[
+                AuditDefinition(
+                    name="EHR Audit",
+                    system_id="ehr-prod-01",
+                    system_user="nurse.jones",
+                    location="Ward 3B",
+                )
+            ],
+        )
+        result = builder.build(analysis)
+        assert "## Audit: EHR Audit" in result
+        assert "**System ID**: ehr-prod-01" in result
+        assert "**System User**: nurse.jones" in result
+        assert "**Location**: Ward 3B" in result
+
+    def test_multiple_audit_sections(self, builder):
+        analysis = FormAnalysis(
+            dataset_name="Test",
+            data=ClusterDefinition(name="Root"),
+            audit=[
+                AuditDefinition(name="Audit 1", system_id="sys-1"),
+                AuditDefinition(name="Audit 2", system_id="sys-2"),
+            ],
+        )
+        result = builder.build(analysis)
+        assert "## Audit: Audit 1" in result
+        assert "## Audit: Audit 2" in result
+
+
+class TestLinksRendering:
+    """Test Links section rendering."""
+
+    def test_links_section(self, builder):
+        analysis = FormAnalysis(
+            dataset_name="Test",
+            data=ClusterDefinition(name="Root"),
+            links=[
+                "https://example.com/ontology/v1",
+                "https://schema.org/MedicalRecord",
+            ],
+        )
+        result = builder.build(analysis)
+        assert "## Links:" in result
+        assert "  - https://example.com/ontology/v1" in result
+        assert "  - https://schema.org/MedicalRecord" in result
+
+
+class TestSectionOrder:
+    """Test that sections render in canonical SDC4 order."""
+
+    def test_canonical_order(self, builder):
+        analysis = FormAnalysis(
+            dataset_name="Order Test",
+            data=ClusterDefinition(name="Data"),
+            subject=PartyDefinition(
+                name="Patient", party_type="subject"
+            ),
+            provider=PartyDefinition(
+                name="Hospital", party_type="provider"
+            ),
+            participations=[
+                PartyDefinition(
+                    name="Physician", party_type="participation"
+                )
+            ],
+            workflow=ClusterDefinition(name="Status"),
+            attestation=AttestationDefinition(name="Sig"),
+            audit=[AuditDefinition(name="Log")],
+            links=["https://example.com"],
+        )
+        result = builder.build(analysis)
+
+        # Verify ordering by finding positions
+        data_pos = result.index("## Data:")
+        subject_pos = result.index("## Subject:")
+        provider_pos = result.index("## Provider:")
+        participation_pos = result.index("## Participation:")
+        workflow_pos = result.index("## Workflow:")
+        attestation_pos = result.index("## Attestation:")
+        audit_pos = result.index("## Audit:")
+        links_pos = result.index("## Links:")
+
+        assert data_pos < subject_pos < provider_pos < participation_pos
+        assert participation_pos < workflow_pos < attestation_pos
+        assert attestation_pos < audit_pos < links_pos
 
 
 class TestRoundTrip:
@@ -292,7 +420,7 @@ class TestRoundTrip:
         analysis = FormAnalysis(
             dataset_name="Round Trip Test",
             source_language="English",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Root",
                 description="Root cluster",
                 columns=[
@@ -320,7 +448,7 @@ class TestRoundTrip:
             source_language="English",
             creator="Test Suite",
             domain="Healthcare",
-            root_cluster=ClusterDefinition(
+            data=ClusterDefinition(
                 name="Patient Record",
                 description="Complete patient information",
                 columns=[
@@ -359,6 +487,46 @@ class TestRoundTrip:
                     ),
                 ],
             ),
+        )
+        template = builder.build(analysis)
+        result = validator.validate(template)
+        assert result.valid is True, (
+            f"Round-trip validation failed with errors: "
+            f"{[e.message for e in result.errors]}"
+        )
+
+    def test_round_trip_all_sections(self, builder, validator):
+        """Build template with all 8 SDC4 trees, validate it."""
+        analysis = FormAnalysis(
+            dataset_name="Full SDC4 Test",
+            source_language="English",
+            data=ClusterDefinition(
+                name="Clinical Data",
+                description="Main data section",
+                columns=[
+                    ColumnDefinition(
+                        name="Diagnosis",
+                        column_type=ColumnType.TEXT,
+                        description="Primary diagnosis",
+                        examples=["Hypertension"],
+                    )
+                ],
+            ),
+            subject=PartyDefinition(
+                name="Patient",
+                description="The patient",
+                party_type="subject",
+            ),
+            workflow=ClusterDefinition(
+                name="Status",
+                description="Workflow tracking",
+            ),
+            attestation=AttestationDefinition(
+                name="Signature",
+                view="application/pdf",
+            ),
+            audit=[AuditDefinition(name="System Log", system_id="sys-01")],
+            links=["https://example.com/ontology"],
         )
         template = builder.build(analysis)
         result = validator.validate(template)

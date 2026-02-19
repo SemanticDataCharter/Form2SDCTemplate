@@ -179,7 +179,7 @@ class Form2SDCValidator:
             self._validate_component(comp)
 
         # Phase 5: Cross-component validation
-        self._validate_root_cluster(self._components[0])
+        self._validate_data_section(self._components[0])
         self._validate_component_names(self._components)
 
         # Phase 6: Context-aware suggestions
@@ -321,6 +321,15 @@ class Form2SDCValidator:
 
     # ── Component parsing ────────────────────────────────────────────
 
+    # SDC4 section prefixes — these are structural sections
+    # that should not require **Type** keyword.
+    # Note: "Data:" is NOT here because Data sections contain
+    # **Type**: Cluster and must be parsed as components.
+    _SECTION_PREFIXES = (
+        "Subject:", "Provider:", "Participation:",
+        "Workflow:", "Attestation:", "Audit:", "Links:",
+    )
+
     def _parse_components(self, markdown_body: str) -> list[_Component]:
         """Parse component blocks from markdown body."""
         components: list[_Component] = []
@@ -339,6 +348,11 @@ class Form2SDCValidator:
             bold_match = bold_re.match(line) if not heading_match else None
 
             if heading_match or bold_match:
+                # Skip party section headings (## Subject:, ## Provider:, ## Participation:)
+                if heading_match:
+                    heading_text = heading_match.group(2).strip()
+                    if any(heading_text.startswith(p) for p in self._SECTION_PREFIXES):
+                        continue
                 # Check if this is actually a keyword line (bold with colon)
                 if bold_match and keyword_re.match(line):
                     # This is a keyword, not a component name
@@ -815,19 +829,26 @@ class Form2SDCValidator:
 
     # ── Cross-component validation ───────────────────────────────────
 
-    def _validate_root_cluster(self, first: _Component) -> None:
-        """E-DOC-007 / E-REQ-004: First component must be Cluster."""
-        if "Type" not in first.keywords:
-            return  # Already reported as E-CMP-001
-        type_val = first.keywords["Type"].value.strip()
-        if type_val != "Cluster" and not type_val.startswith("@"):
-            self._add_error(
-                "E-DOC-007",
-                first.start_line,
-                "First component must be Type: Cluster (root cluster required)",
-                fix="Change the first component's Type to 'Cluster' or add a root Cluster before it",
-                component=first.name,
-            )
+    def _validate_data_section(self, first: _Component) -> None:
+        """E-DOC-007 / E-REQ-004: A Data section with Cluster type must exist.
+
+        Other sections (Subject/Provider/Participation/etc.) may appear,
+        so we check all components — not just the first one.
+        """
+        for comp in self._components:
+            if "Type" not in comp.keywords:
+                continue
+            type_val = comp.keywords["Type"].value.strip()
+            if type_val == "Cluster" or type_val.startswith("@"):
+                return  # Found a data cluster
+        # No Cluster found at all
+        self._add_error(
+            "E-DOC-007",
+            first.start_line,
+            "No Data section with Type: Cluster found - at least one is required",
+            fix="Add a '## Data: Name' section with '**Type**: Cluster'",
+            component=first.name,
+        )
 
     def _validate_component_names(self, components: list[_Component]) -> None:
         """E-CMP-005: Component names must be unique."""

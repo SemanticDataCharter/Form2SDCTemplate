@@ -7,6 +7,8 @@ from structured FormAnalysis data.
 from __future__ import annotations
 
 from form2sdc.types import (
+    AttestationDefinition,
+    AuditDefinition,
     ClusterDefinition,
     ColumnDefinition,
     ColumnType,
@@ -23,6 +25,18 @@ class TemplateBuilder:
     def build(self, analysis: FormAnalysis) -> str:
         """Convert a FormAnalysis to a complete SDC4 markdown template.
 
+        Renders sections in canonical SDC4 tree order:
+        1. Front matter
+        2. Dataset overview
+        3. Data section (required)
+        4. Subject section (party)
+        5. Provider section (party)
+        6. Participation sections (party)
+        7. Workflow section
+        8. Attestation section
+        9. Audit sections
+        10. Links section
+
         Args:
             analysis: Structured form analysis result.
 
@@ -34,7 +48,10 @@ class TemplateBuilder:
         parts.append(self._render_front_matter(analysis))
         parts.append(self._render_dataset_overview(analysis))
 
-        # Subject / Provider / Participation (PART 3)
+        # Data section (required)
+        parts.append(self._render_data_section(analysis.data))
+
+        # Subject / Provider / Participation (party sections)
         if analysis.subject:
             parts.append(self._render_party(analysis.subject, "Subject"))
         if analysis.provider:
@@ -43,12 +60,22 @@ class TemplateBuilder:
             for p in analysis.participations:
                 parts.append(self._render_party(p, "Participation"))
 
-        # Root cluster and columns (PARTs 4-5)
-        parts.append(self._render_cluster(analysis.root_cluster, level=2))
+        # Workflow section
+        if analysis.workflow:
+            parts.append(self._render_workflow_section(analysis.workflow))
 
-        # Sub-clusters (PART 9)
-        for sub in analysis.root_cluster.sub_clusters:
-            parts.append(self._render_sub_cluster(sub))
+        # Attestation section
+        if analysis.attestation:
+            parts.append(self._render_attestation(analysis.attestation))
+
+        # Audit sections
+        if analysis.audit:
+            for audit in analysis.audit:
+                parts.append(self._render_audit(audit))
+
+        # Links section
+        if analysis.links:
+            parts.append(self._render_links(analysis.links))
 
         return "\n".join(parts)
 
@@ -100,7 +127,32 @@ class TemplateBuilder:
 
         return "\n".join(lines)
 
-    # ── PART 3: Party sections ───────────────────────────────────────
+    # ── Data section ─────────────────────────────────────────────────
+
+    def _render_data_section(self, cluster: ClusterDefinition) -> str:
+        lines = [f"## Data: {cluster.name}", ""]
+        lines.append("**Type**: Cluster")
+
+        if cluster.description:
+            lines.append(f"**Description**: {cluster.description}")
+
+        if cluster.purpose:
+            lines.append(f"**Purpose**: {cluster.purpose}")
+
+        if cluster.business_context:
+            lines.append(f"**Business Context**: {cluster.business_context}")
+
+        if cluster.constraints and cluster.constraints.cardinality:
+            lines.append(f"**Cardinality**: {cluster.constraints.cardinality}")
+
+        lines.append("")
+
+        for col in cluster.columns:
+            lines.append(self._render_column(col, level=3))
+
+        return "\n".join(lines)
+
+    # ── Party sections ───────────────────────────────────────────────
 
     def _render_party(self, party: PartyDefinition, section_type: str) -> str:
         lines = [f"## {section_type}: {party.name}", ""]
@@ -128,33 +180,62 @@ class TemplateBuilder:
 
         return "\n".join(lines)
 
-    # ── PARTs 4-5: Root Cluster + Columns ────────────────────────────
+    # ── Workflow section ─────────────────────────────────────────────
 
-    def _render_cluster(
-        self, cluster: ClusterDefinition, level: int = 2
-    ) -> str:
-        hashes = "#" * level
-        lines = [f"{hashes} {cluster.name}", ""]
-        lines.append("**Type**: Cluster")
+    def _render_workflow_section(self, cluster: ClusterDefinition) -> str:
+        lines = [f"## Workflow: {cluster.name}", ""]
 
         if cluster.description:
             lines.append(f"**Description**: {cluster.description}")
-
-        if cluster.purpose:
-            lines.append(f"**Purpose**: {cluster.purpose}")
-
-        if cluster.business_context:
-            lines.append(f"**Business Context**: {cluster.business_context}")
-
-        if cluster.constraints and cluster.constraints.cardinality:
-            lines.append(f"**Cardinality**: {cluster.constraints.cardinality}")
-
-        lines.append("")
+            lines.append("")
 
         for col in cluster.columns:
-            lines.append(self._render_column(col, level=level + 1))
+            lines.append(self._render_column(col, level=3))
 
         return "\n".join(lines)
+
+    # ── Attestation section ──────────────────────────────────────────
+
+    def _render_attestation(self, att: AttestationDefinition) -> str:
+        lines = [f"## Attestation: {att.name}", ""]
+
+        if att.view:
+            lines.append(f"**View**: {att.view}")
+        if att.proof:
+            lines.append(f"**Proof**: {att.proof}")
+        if att.reason:
+            lines.append(f"**Reason**: {att.reason}")
+        if att.committer:
+            lines.append(f"**Committer**: {att.committer}")
+
+        lines.append("")
+        return "\n".join(lines)
+
+    # ── Audit section ────────────────────────────────────────────────
+
+    def _render_audit(self, audit: AuditDefinition) -> str:
+        lines = [f"## Audit: {audit.name}", ""]
+
+        if audit.system_id:
+            lines.append(f"**System ID**: {audit.system_id}")
+        if audit.system_user:
+            lines.append(f"**System User**: {audit.system_user}")
+        if audit.location:
+            lines.append(f"**Location**: {audit.location}")
+
+        lines.append("")
+        return "\n".join(lines)
+
+    # ── Links section ────────────────────────────────────────────────
+
+    def _render_links(self, links: list[str]) -> str:
+        lines = ["## Links:", ""]
+        for uri in links:
+            lines.append(f"  - {uri}")
+        lines.append("")
+        return "\n".join(lines)
+
+    # ── Column rendering ─────────────────────────────────────────────
 
     def _render_column(self, col: ColumnDefinition, level: int = 3) -> str:
         hashes = "#" * level
@@ -176,11 +257,11 @@ class TemplateBuilder:
         if col.units:
             lines.append(f"**Units**: {col.units}")
 
-        # Enumeration (PART 7)
+        # Enumeration
         if col.enumeration:
             lines.append(self._render_enumeration(col.enumeration))
 
-        # Constraints (PART 8)
+        # Constraints
         if col.constraints:
             lines.extend(self._render_constraints(col.constraints, sdc4_type))
 
@@ -205,7 +286,7 @@ class TemplateBuilder:
         lines.append("")
         return "\n".join(lines)
 
-    # ── PART 7: Enumerations ─────────────────────────────────────────
+    # ── Enumerations ─────────────────────────────────────────────────
 
     def _render_enumeration(self, items: list[EnumerationItem]) -> str:
         lines = ["**Enumeration**:"]
@@ -218,7 +299,7 @@ class TemplateBuilder:
                 lines.append(f"  - {item.value}")
         return "\n".join(lines)
 
-    # ── PART 8: Constraints ──────────────────────────────────────────
+    # ── Constraints ──────────────────────────────────────────────────
 
     def _render_constraints(
         self, c, sdc4_type: str
@@ -268,31 +349,3 @@ class TemplateBuilder:
             lines.extend(constraint_items)
 
         return lines
-
-    # ── PART 9: Sub-Clusters ─────────────────────────────────────────
-
-    def _render_sub_cluster(self, cluster: ClusterDefinition) -> str:
-        lines = [f"## Sub-Cluster: {cluster.name}", ""]
-
-        if cluster.description:
-            lines.append(cluster.description)
-            lines.append("")
-
-        if cluster.purpose:
-            lines.append(f"**Purpose**: {cluster.purpose}")
-        if cluster.parent:
-            lines.append(f"**Parent**: {cluster.parent}")
-        if cluster.business_context:
-            lines.append(f"**Business Context**: {cluster.business_context}")
-
-        lines.append("**Type**: Cluster")
-        lines.append("")
-
-        for col in cluster.columns:
-            lines.append(self._render_column(col, level=3))
-
-        # Nested sub-clusters
-        for sub in cluster.sub_clusters:
-            lines.append(self._render_sub_cluster(sub))
-
-        return "\n".join(lines)

@@ -115,15 +115,13 @@ class ColumnDefinition(BaseModel):
 
 
 class ClusterDefinition(BaseModel):
-    """A structural grouping of columns, possibly nested."""
+    """A flat grouping of columns."""
 
     name: str = Field(..., description="Cluster name")
     description: str = Field("", description="What this cluster represents")
     purpose: Optional[str] = None
     business_context: Optional[str] = None
-    parent: Optional[str] = Field(None, description="Parent cluster name")
     columns: list[ColumnDefinition] = Field(default_factory=list)
-    sub_clusters: list[ClusterDefinition] = Field(default_factory=list)
     constraints: Optional[Constraint] = None
 
 
@@ -146,10 +144,30 @@ class PartyDefinition(BaseModel):
     columns: list[ColumnDefinition] = Field(default_factory=list)
 
 
+class AttestationDefinition(BaseModel):
+    """Attestation section — fixed fields from SDC4 model."""
+
+    name: str
+    view: Optional[str] = Field(None, description="Media type for view")
+    proof: Optional[str] = Field(None, description="Media type for proof")
+    reason: Optional[str] = Field(None, description="Reason text")
+    committer: Optional[str] = Field(None, description="Party description")
+
+
+class AuditDefinition(BaseModel):
+    """Audit section — fixed fields from SDC4 model."""
+
+    name: str
+    system_id: Optional[str] = Field(None, description="System identifier")
+    system_user: Optional[str] = Field(None, description="User description")
+    location: Optional[str] = Field(None, description="Location description")
+
+
 class FormAnalysis(BaseModel):
     """Top-level analysis result from a form analyzer.
 
     This is the structured output contract between Gemini and the template builder.
+    The 8 named trees match the SDC4 data model.
     """
 
     dataset_name: str = Field(..., description="Name of the dataset/project")
@@ -164,12 +182,24 @@ class FormAnalysis(BaseModel):
     primary_use: Optional[str] = None
     secondary_use: Optional[str] = None
     stakeholders: Optional[str] = None
-    root_cluster: ClusterDefinition = Field(
-        ..., description="Root-level data structure"
+    enable_llm: Optional[bool] = Field(
+        True, description="Whether to enable LLM enrichment"
+    )
+
+    # 8 Named Trees (SDC4 data model)
+    data: ClusterDefinition = Field(
+        ..., description="Data section — required, flat columns"
     )
     subject: Optional[PartyDefinition] = None
     provider: Optional[PartyDefinition] = None
     participations: Optional[list[PartyDefinition]] = None
-    enable_llm: Optional[bool] = Field(
-        True, description="Whether to enable LLM enrichment"
+    workflow: Optional[ClusterDefinition] = Field(
+        None, description="Workflow section — flat columns"
+    )
+    attestation: Optional[AttestationDefinition] = None
+    audit: Optional[list[AuditDefinition]] = Field(
+        None, description="Audit sections — multiple allowed"
+    )
+    links: Optional[list[str]] = Field(
+        None, description="URI list for linked resources"
     )

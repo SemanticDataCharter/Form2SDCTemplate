@@ -11,14 +11,14 @@ def valid_front_matter():
 
 @pytest.fixture
 def valid_minimal_template():
-    """Minimal valid template with root cluster and one component."""
+    """Minimal valid template with Data section and one component."""
     return """---
 project_name: "Minimal"
 source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 **Description**: Root cluster
@@ -41,7 +41,7 @@ description: "Comprehensive test template"
 author: "Test Suite"
 ---
 
-## Patient Record
+## Data: Patient Record
 
 **Type**: Cluster
 **Description**: Complete patient information

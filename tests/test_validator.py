@@ -40,7 +40,7 @@ class TestSpecCriticalErrors:
 
     def test_03_missing_yaml_front_matter(self, validator):
         """Test 3: Missing YAML front matter."""
-        content = """## Root
+        content = """## Data: Root
 
 **Type**: Cluster
 """
@@ -54,7 +54,7 @@ class TestSpecCriticalErrors:
 project_name: "Test"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 """
@@ -72,7 +72,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -95,7 +95,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -119,7 +119,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -144,7 +144,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -160,8 +160,8 @@ template_version: "1.0.0"
             for e in result.errors
         )
 
-    def test_09_first_component_not_cluster(self, validator):
-        """Test 9: First component is not Cluster."""
+    def test_09_no_cluster_component(self, validator):
+        """Test 9: No Cluster component found."""
         content = """---
 project_name: "Test"
 source_language: "English"
@@ -188,7 +188,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -209,7 +209,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -229,7 +229,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -258,7 +258,7 @@ project_name: "Test
 source_language: "English"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 """
@@ -286,7 +286,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 """
@@ -306,7 +306,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -330,7 +330,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -355,7 +355,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -379,7 +379,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -400,7 +400,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -422,7 +422,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -445,7 +445,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -468,7 +468,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -493,7 +493,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -515,7 +515,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -539,7 +539,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -563,7 +563,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -584,7 +584,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -605,7 +605,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -630,7 +630,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -649,7 +649,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -669,7 +669,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -690,7 +690,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 
@@ -701,6 +701,229 @@ template_version: "1.0.0"
 """
         result = validator.validate(content)
         assert any(w.code == "W-BP-006" for w in result.warnings)
+
+
+class TestSectionHandling:
+    """Test all 8 SDC4 section types are handled correctly."""
+
+    def test_data_section_not_treated_as_component(self, validator):
+        """Data section heading should be skipped by component parser."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Data: Clinical Records
+
+**Type**: Cluster
+**Description**: Main data cluster
+
+### diagnosis
+
+**Type**: XdString
+**Description**: Primary diagnosis
+"""
+        result = validator.validate(content)
+        assert result.valid is True
+
+    def test_subject_section_not_treated_as_component(self, validator):
+        """Subject section should not require **Type** keyword."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Subject: Respondent
+
+**Description**: The individual whose information is being captured.
+
+### full_name
+
+**Type**: XdString
+**Description**: Full legal name
+
+## Data: Form Data
+
+**Type**: Cluster
+**Description**: Main data cluster
+"""
+        result = validator.validate(content)
+        assert result.valid is True
+        assert not any(e.code == "E-CMP-001" for e in result.errors)
+
+    def test_all_section_types_accepted(self, validator):
+        """All 8 section types should be accepted without errors."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Data: Clinical Data
+
+**Type**: Cluster
+**Description**: Clinical data cluster
+
+### diagnosis
+
+**Type**: XdString
+**Description**: Primary diagnosis
+
+## Subject: Patient
+
+**Description**: The patient being treated.
+
+### patient_name
+
+**Type**: XdString
+**Description**: Patient full name
+
+## Provider: Hospital
+
+**Description**: The treating facility.
+
+### hospital_name
+
+**Type**: XdString
+**Description**: Hospital name
+
+## Participation: Physician
+
+**Description**: The attending physician.
+**Function**: Attending
+**Mode**: Direct
+
+### physician_name
+
+**Type**: XdString
+**Description**: Physician name
+
+## Workflow: Status
+
+**Description**: Workflow tracking
+
+## Attestation: Signature
+
+**View**: application/pdf
+
+## Audit: System Log
+
+**System ID**: ehr-01
+
+## Links:
+
+  - https://example.com/ontology
+"""
+        result = validator.validate(content)
+        assert result.valid is True
+        assert not any(e.code == "E-CMP-001" for e in result.errors)
+        assert not any(e.code == "E-DOC-007" for e in result.errors)
+
+    def test_data_section_still_required(self, validator):
+        """Even with other sections, a Data section with Cluster must exist."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Subject: Respondent
+
+**Description**: The respondent.
+
+### name
+
+**Type**: XdString
+**Description**: Name
+"""
+        result = validator.validate(content)
+        assert result.valid is False
+        assert any(e.code == "E-DOC-007" for e in result.errors)
+
+    def test_workflow_section_skipped(self, validator):
+        """Workflow section heading should not be parsed as component."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Data: Root
+
+**Type**: Cluster
+**Description**: Data
+
+## Workflow: Status Tracking
+
+**Description**: Tracks workflow state
+"""
+        result = validator.validate(content)
+        assert result.valid is True
+
+    def test_attestation_section_skipped(self, validator):
+        """Attestation section heading should not be parsed as component."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Data: Root
+
+**Type**: Cluster
+**Description**: Data
+
+## Attestation: Clinical Signature
+
+**View**: application/pdf
+**Proof**: application/pkcs7-signature
+"""
+        result = validator.validate(content)
+        assert result.valid is True
+
+    def test_audit_section_skipped(self, validator):
+        """Audit section heading should not be parsed as component."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Data: Root
+
+**Type**: Cluster
+**Description**: Data
+
+## Audit: EHR Log
+
+**System ID**: ehr-prod-01
+**System User**: admin
+"""
+        result = validator.validate(content)
+        assert result.valid is True
+
+    def test_links_section_skipped(self, validator):
+        """Links section heading should not be parsed as component."""
+        content = """---
+project_name: "Test"
+source_language: "English"
+template_version: "4.0.0"
+---
+
+## Data: Root
+
+**Type**: Cluster
+**Description**: Data
+
+## Links:
+
+  - https://example.com/ontology/v1
+  - https://schema.org/MedicalRecord
+"""
+        result = validator.validate(content)
+        assert result.valid is True
 
 
 class TestFrontMatterCompatibility:
@@ -716,7 +939,7 @@ dataset:
 source_language: "English"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 **Description**: Root cluster
@@ -732,7 +955,7 @@ source_language: "English"
 template_version: "1.0.0"
 ---
 
-## Root
+## Data: Root
 
 **Type**: Cluster
 **Description**: Root cluster

@@ -18,6 +18,40 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.3.0] - 2026-02-19
+
+### Changed
+- **BREAKING**: Template section `## Root Cluster:` renamed to `## Data:` to match SDC4 data model
+- **BREAKING**: Sub-clusters removed entirely — all sections are flat columns only
+- **BREAKING**: `FormAnalysis.root_cluster` renamed to `FormAnalysis.data`
+- Template sections now match the 8 SDC4 data model trees
+
+### Added
+- Workflow section support (`## Workflow: Name`)
+- Attestation section support (`## Attestation: Name`) with fixed fields (View, Proof, Reason, Committer)
+- Audit section support (`## Audit: Name`) with fixed fields (System ID, System User, Location)
+- Links section support (`## Links:`) with URI list
+- `AttestationDefinition` and `AuditDefinition` Pydantic models
+- Validator accepts all 8 SDC4 section types as structural headings
+
+### Removed
+- `ClusterDefinition.sub_clusters` field
+- `ClusterDefinition.parent` field
+- Sub-cluster rendering in template builder
+
+---
+
+## [4.2.10] - 2026-02-19
+
+### Fixed
+- Validator no longer flags Subject/Provider/Participation party sections as missing **Type** (E-CMP-001)
+- Root Cluster validation now correctly handles templates with party sections before the Cluster
+
+### Added
+- Party section tests (Subject, Provider, Participation) in test suite
+
+---
+
 ## [4.2.9] - 2026-02-19
 
 ### Fixed
@@ -241,6 +275,7 @@ aligned with SDC Generation 4.
 
 | Version | Release Date | Major Changes |
 |---------|-------------|---------------|
+| 4.3.0   | 2026-02-19  | SDC4 named trees, remove sub-clusters, add Workflow/Attestation/Audit/Links |
 | 4.2.4   | 2026-02-19  | Fix RecursionError — prompt-based schema instead of response_schema |
 | 4.2.3   | 2026-02-19  | Fix RecursionError in Gemini schema processing |
 | 4.2.2   | 2026-02-19  | Notebook restructure, SDCStudio catalog integration |
@@ -366,7 +401,8 @@ See [GitHub Contributors](https://github.com/SemanticDataCharter/Form2SDCTemplat
 
 *For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)*
 
-[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.4...HEAD
+[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.3.0...HEAD
+[4.3.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.10...v4.3.0
 [4.2.4]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.3...v4.2.4
 [4.2.3]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.2...v4.2.3
 [4.2.2]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.1...v4.2.2

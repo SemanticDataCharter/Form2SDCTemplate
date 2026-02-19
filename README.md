@@ -1,6 +1,6 @@
 # Form2SDCTemplate
 
-[![Version](https://img.shields.io/badge/version-4.2.9-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
+[![Version](https://img.shields.io/badge/version-4.3.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![SDC](https://img.shields.io/badge/SDC-4.0-purple)](https://github.com/SemanticDataCharter/SDCRM)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)
@@ -106,7 +106,7 @@ else:
 ### Complete Template Generation
 - YAML front matter with metadata
 - Dataset overview and business context
-- Root and sub-cluster organization
+- SDC4 named tree organization (Data, Subject, Provider, Participation, Workflow, Attestation, Audit, Links)
 - Column definitions with constraints and enumerations
 - Component reuse support (NIEM, FHIR, HL7v3)
 - Example templates in English, French, and Brazilian Portuguese
@@ -284,7 +284,7 @@ Form2SDCTemplate supports generation of templates compliant with:
 
 ## Version Information
 
-**Current Version:** 4.2.9
+**Current Version:** 4.3.0
 
 The major version (4.x.x) aligns with SDC Generation 4, ensuring compatibility across the SDC4 ecosystem. See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
