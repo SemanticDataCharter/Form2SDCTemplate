@@ -41,7 +41,7 @@ def load_system_prompt(path: Optional[str | Path] = None) -> str:
     try:
         import importlib.resources as resources
 
-        ref = resources.files("form2sdc").parent / "Form2SDCTemplate.md"
+        ref = resources.files("form2sdc") / "Form2SDCTemplate.md"
         if ref.is_file():
             return ref.read_text(encoding="utf-8")
     except (ImportError, AttributeError, TypeError, FileNotFoundError):

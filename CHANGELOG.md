@@ -18,6 +18,18 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.1] - 2026-02-19
+
+### Fixed
+- Bundle Form2SDCTemplate.md inside the package for offline pip installs
+- Fix prompt_loader.py importlib.resources path for installed packages
+
+### Added
+- GitHub Actions: CI test matrix (Python 3.10–3.13, ubuntu/macos/windows)
+- GitHub Actions: package build verification with twine check
+
+---
+
 ## [4.2.0] - 2026-02-18
 
 ### Added
@@ -149,6 +161,7 @@ aligned with SDC Generation 4.
 
 | Version | Release Date | Major Changes |
 |---------|-------------|---------------|
+| 4.2.1   | 2026-02-19  | PyPI packaging fix, CI test workflow |
 | 4.2.0   | 2026-02-18  | Python package + Colab notebook, full validator |
 | 4.0.0   | 2025-11-05  | Initial release with full documentation suite |
 
@@ -270,6 +283,7 @@ See [GitHub Contributors](https://github.com/SemanticDataCharter/Form2SDCTemplat
 
 *For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)*
 
-[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.1...HEAD
+[4.2.1]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.0...v4.2.1
 [4.2.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.0.0...v4.2.0
 [4.0.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/releases/tag/v4.0.0
