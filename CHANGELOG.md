@@ -18,6 +18,15 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.6] - 2026-02-19
+
+### Fixed
+- Remove response_mime_type="application/json" which also triggers SDK RecursionError
+- Extract JSON from plain-text response with markdown fence stripping
+- Completely avoids google-genai SDK's process_schema on self-referential models
+
+---
+
 ## [4.2.5] - 2026-02-19
 
 ### Fixed

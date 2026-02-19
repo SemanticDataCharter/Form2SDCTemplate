@@ -6,6 +6,7 @@ Gemini-first with a thin FormAnalyzer protocol for swappability.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Optional, Protocol, runtime_checkable
 
@@ -142,27 +143,34 @@ class GeminiAnalyzer:
             "Analyze this form and extract its structure. "
             "Identify all fields, their data types, constraints, and relationships. "
             "Create appropriate clusters and sub-clusters for logical groupings.\n\n"
-            "Return your response as a single JSON object conforming to this schema:\n"
-            f"```json\n{schema_json}\n```"
+            "Return ONLY a JSON object (no markdown fences, no commentary) "
+            "conforming to this schema:\n"
+            f"{schema_json}"
         )
         if additional_instructions:
             user_prompt += f"\n\nAdditional instructions: {additional_instructions}"
 
         parts.append(genai_types.Part.from_text(text=user_prompt))
 
-        # Request JSON output without response_schema to avoid SDK
-        # RecursionError on deeply nested Pydantic models
+        # Avoid response_mime_type="application/json" AND response_schema=
+        # because the google-genai SDK's process_schema recurses infinitely
+        # on the self-referential ClusterDefinition model.  We ask for JSON
+        # in the prompt and parse it from the plain-text response instead.
         response = self._client.models.generate_content(
             model=self._model,
             contents=parts,
             config=genai_types.GenerateContentConfig(
                 system_instruction=self._system_prompt,
                 temperature=self._temperature,
-                response_mime_type="application/json",
             ),
         )
 
-        # Parse and validate with Pydantic
-        result_text = response.text
+        # Extract JSON from response (strip markdown fences if present)
+        result_text = response.text.strip()
+        fence_match = re.search(
+            r"```(?:json)?\s*\n(.*?)\n\s*```", result_text, re.DOTALL
+        )
+        if fence_match:
+            result_text = fence_match.group(1)
         result_data = json.loads(result_text)
         return FormAnalysis.model_validate(result_data)
