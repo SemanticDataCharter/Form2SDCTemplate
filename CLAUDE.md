@@ -20,27 +20,82 @@ Enable rapid, AI-assisted creation of standards-compliant SDC4 templates without
 
 ```
 Form2SDCTemplate/
-├── LICENSE                 # Apache 2.0 license
-├── README.md              # Primary documentation
-├── CLAUDE.md              # This file
-├── CONTRIBUTING.md        # Contribution guidelines
-├── SECURITY.md            # Security policy
-├── CODE_OF_CONDUCT.md     # Community standards
-├── CHANGELOG.md           # Version history
-├── .github/               # GitHub templates and workflows
-│   ├── ISSUE_TEMPLATE/
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── workflows/
-└── templates/             # (Planned) LLM-optimized markdown templates
-    └── form-template.md   # (Planned) Main template file
+├── Form2SDCTemplate.md      # LLM system prompt (2300+ lines)
+├── VALIDATOR_SPECIFICATION.md # Validation rules specification
+├── form2sdc/                # Python package
+│   ├── __init__.py          # Package version + public API
+│   ├── types.py             # Pydantic models (FormAnalysis, ColumnDefinition, etc.)
+│   ├── analyzer.py          # FormAnalyzer protocol + GeminiAnalyzer
+│   ├── template_builder.py  # FormAnalysis → SDC4 markdown
+│   ├── validator.py         # 51 validation rules from spec
+│   ├── prompt_loader.py     # Load Form2SDCTemplate.md as system prompt
+│   └── core.py              # FormToTemplatePipeline orchestration
+├── notebooks/
+│   └── form_to_template.ipynb  # Google Colab notebook (primary product)
+├── tests/
+│   ├── conftest.py          # Shared fixtures
+│   ├── test_validator.py    # 50+ validator tests
+│   ├── test_template_builder.py  # Builder + round-trip tests
+│   └── test_types.py        # Pydantic model tests
+├── pyproject.toml           # Package configuration
+├── README.md                # User-facing documentation
+├── CLAUDE.md                # This file
+├── CHANGELOG.md             # Version history
+├── CONTRIBUTING.md          # Contribution guidelines
+├── SECURITY.md              # Security policy
+├── CODE_OF_CONDUCT.md       # Community standards
+├── LICENSE                  # Apache 2.0
+└── .github/                 # GitHub templates and workflows
 ```
 
 ### Design Philosophy
 
 1. **LLM-First Design**: All documentation and templates are structured for optimal AI comprehension
-2. **Minimal Dependencies**: No runtime dependencies; pure markdown-based approach
+2. **Gemini-First, Swappable**: GeminiAnalyzer is the default; `FormAnalyzer` protocol enables other backends
 3. **Standards Compliance**: Outputs conform to SDC4 specifications
-4. **Iterative Refinement**: Support conversational template development
+4. **Separation of Concerns**: Analysis (LLM), building (pure Python), validation (pure Python) are independent
+5. **Iterative Refinement**: Support conversational template development
+
+---
+
+## Python Development
+
+### Setup
+
+```bash
+# Install in development mode with all extras
+pip install -e ".[all]"
+
+# Or just core + dev tools
+pip install -e ".[dev]"
+```
+
+### Running Tests
+
+```bash
+# All tests (no API key needed)
+pytest tests/ -v
+
+# With coverage
+pytest tests/ --cov=form2sdc --cov-report=term-missing
+
+# Specific test file
+pytest tests/test_validator.py -v
+```
+
+### Package Architecture
+
+- **types.py**: User-friendly types (text, integer, decimal) mapped to SDC4 types (XdString, XdCount, XdQuantity) via `resolve_sdc4_type()`
+- **validator.py**: Stateless validator — create new instance per validation call. Supports both `project_name` (spec) and `dataset.name` (Form2SDCTemplate.md) YAML formats
+- **template_builder.py**: Pure Python, no LLM calls. `TemplateBuilder.build(FormAnalysis)` → markdown string
+- **analyzer.py**: `GeminiAnalyzer` uses `response_schema=FormAnalysis` for structured output (no JSON parsing needed)
+- **core.py**: `FormToTemplatePipeline.process()` chains analyze → build → validate
+
+### Key Patterns
+
+- All tests are pure unit tests (no API keys, no network)
+- Round-trip test: `build(analysis) → validate() → assert valid`
+- Validator accepts deprecated keywords (Values→Enumeration, Unit→Units) with warnings
 
 ---
 

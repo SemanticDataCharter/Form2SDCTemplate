@@ -16,6 +16,42 @@ aligned with SDC Generation 4.
 
 ## [Unreleased]
 
+---
+
+## [4.2.0] - 2026-02-18
+
+### Added
+- **`form2sdc` Python package** — pip-installable library for programmatic template generation
+  - `form2sdc.types` — Pydantic models for structured data exchange (FormAnalysis, ColumnDefinition, ClusterDefinition, etc.)
+  - `form2sdc.validator` — Full validator implementing all 51 rules from VALIDATOR_SPECIFICATION.md (24 CRITICAL, 15 WARNING, 12 SUGGESTION)
+  - `form2sdc.template_builder` — Pure Python template builder converting FormAnalysis to SDC4 markdown
+  - `form2sdc.analyzer` — FormAnalyzer protocol with GeminiAnalyzer implementation (structured output via google-genai SDK)
+  - `form2sdc.prompt_loader` — Intelligent Form2SDCTemplate.md loader (package data, repo root, GitHub fallback)
+  - `form2sdc.core` — FormToTemplatePipeline orchestrating analyze → build → validate
+- **Google Colab notebook** (`notebooks/form_to_template.ipynb`) — Primary user-facing product
+  - Upload PDF, DOCX, or image forms
+  - Gemini-powered analysis with structured output
+  - Validation with colored results display
+  - Markdown preview and raw view
+  - One-click download of generated templates
+- **Comprehensive test suite** (50+ tests)
+  - All 12 test cases from VALIDATOR_SPECIFICATION.md section 7
+  - Additional coverage for E-CMP-003/004/005, E-BIZ-002-007, E-SYN-002/003
+  - Round-trip tests (build → validate → passes)
+  - Pydantic model validation tests
+  - Template builder output tests
+- **pyproject.toml** for pip-installable package with optional extras (`gemini`, `dev`)
+- **YAML front matter compatibility** — Validator accepts both `project_name` (spec format) and `dataset.name` (Form2SDCTemplate.md format)
+- Open in Colab badge in README
+
+### Changed
+- README updated with Colab quick start section, Python usage examples, and validator usage
+- CLAUDE.md updated with Python development guidance
+
+---
+
+## [4.1.0] - Unreleased
+
 ### Added
 - **Subject/Provider/Participation sections** for SDC4 participation model support
   - `## Subject:` section for defining who the record is about (patient, citizen, vessel)
@@ -113,6 +149,7 @@ aligned with SDC Generation 4.
 
 | Version | Release Date | Major Changes |
 |---------|-------------|---------------|
+| 4.2.0   | 2026-02-18  | Python package + Colab notebook, full validator |
 | 4.0.0   | 2025-11-05  | Initial release with full documentation suite |
 
 ---
@@ -233,5 +270,6 @@ See [GitHub Contributors](https://github.com/SemanticDataCharter/Form2SDCTemplat
 
 *For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)*
 
-[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.0...HEAD
+[4.2.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.0.0...v4.2.0
 [4.0.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/releases/tag/v4.0.0

@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "form2sdc"
+version = "4.2.0"
+description = "Convert forms to SDC4-compliant templates using Gemini AI"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    {name = "Axius-SDC, Inc.", email = "security@axius-sdc.com"}
+]
+keywords = ["sdc4", "data-modeling", "template-generation", "gemini", "form-conversion"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+gemini = ["google-genai>=1.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+all = ["form2sdc[gemini,dev]"]
+
+[project.urls]
+Homepage = "https://github.com/SemanticDataCharter/Form2SDCTemplate"
+Documentation = "https://github.com/SemanticDataCharter/Form2SDCTemplate#readme"
+Repository = "https://github.com/SemanticDataCharter/Form2SDCTemplate"
+Issues = "https://github.com/SemanticDataCharter/Form2SDCTemplate/issues"
+
+[tool.setuptools.packages.find]
+include = ["form2sdc*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

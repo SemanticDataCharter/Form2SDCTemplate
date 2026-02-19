@@ -37,8 +37,10 @@ __pycache__/
 *$py.class
 .Python
 venv/
+.venv/
 env/
 ENV/
+*.egg-info/
 
 # Node.js
 node_modules/

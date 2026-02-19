@@ -1,20 +1,68 @@
 # Form2SDCTemplate
 
-[![Version](https://img.shields.io/badge/version-4.0.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
+[![Version](https://img.shields.io/badge/version-4.2.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![SDC](https://img.shields.io/badge/SDC-4.0-purple)](https://github.com/SemanticDataCharter/SDCRM)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)
 
-LLM-compatible documentation template for generating SDCStudio templates from form descriptions.
+Convert PDF, DOCX, and image forms into SDC4-compliant templates — powered by Gemini AI.
 
 ---
 
 ## Overview
 
-Form2SDCTemplate provides a structured markdown document designed to work with Large Language Models (LLMs) to automatically generate SDCStudio templates. By uploading the markdown documentation to an LLM, users can quickly produce standards-compliant SDC4 templates without manual template creation.
+Form2SDCTemplate provides two ways to generate SDC4 templates:
 
-This tool bridges the gap between human-readable form descriptions and machine-readable SDC4 template specifications, enabling rapid template development through AI-assisted generation.
+1. **Google Colab Notebook** (new) — Upload a form, get a validated template automatically
+2. **Manual LLM Usage** — Upload `Form2SDCTemplate.md` to any LLM as instructions
 
-## Quick Start
+Both approaches produce standards-compliant SDC4 templates ready for SDCStudio upload.
+
+## Quick Start with Google Colab
+
+The fastest way to convert a form to an SDC4 template:
+
+1. Open the [Form2SDCTemplate Colab notebook](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)
+2. Enter your [Google AI API key](https://aistudio.google.com/apikey)
+3. Upload your form (PDF, DOCX, PNG, JPG)
+4. Download the generated SDC4 markdown template
+5. Upload to SDCStudio for processing
+
+### Quick Start with Python
+
+```bash
+pip install "form2sdc[gemini]"
+```
+
+```python
+from form2sdc.analyzer import GeminiAnalyzer
+from form2sdc.core import FormToTemplatePipeline
+from pathlib import Path
+
+analyzer = GeminiAnalyzer(api_key="YOUR_KEY")
+pipeline = FormToTemplatePipeline(analyzer)
+result = pipeline.process(Path("your_form.pdf"))
+
+print(result.template)       # SDC4 markdown
+print(result.validation.valid)  # True if valid
+```
+
+### Validate an existing template
+
+```python
+from form2sdc.validator import Form2SDCValidator
+
+validator = Form2SDCValidator()
+result = validator.validate(open("template.md").read())
+
+if result.valid:
+    print("Template is valid!")
+else:
+    for error in result.errors:
+        print(f"[{error.code}] {error.message}")
+```
+
+## Manual LLM Usage
 
 ### Option 1: Direct Download (Recommended)
 
@@ -214,9 +262,15 @@ Part of the Semantic Data Charter ecosystem:
 
 ## System Requirements
 
+**For Colab/Python usage:**
+- Python 3.10+
+- Google AI API key (free tier available at [aistudio.google.com](https://aistudio.google.com/apikey))
+
+**For manual LLM usage:**
 - LLM with markdown file upload capability (Claude, ChatGPT, etc.)
 - Basic understanding of form structure and data collection
-- Optional: SDCStudio for template testing and refinement
+
+**Optional:** SDCStudio for template testing and refinement
 
 ## Standards Compliance
 
@@ -230,7 +284,7 @@ Form2SDCTemplate supports generation of templates compliant with:
 
 ## Version Information
 
-**Current Version:** 4.0.0
+**Current Version:** 4.2.0
 
 The major version (4.x.x) aligns with SDC Generation 4, ensuring compatibility across the SDC4 ecosystem. See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
