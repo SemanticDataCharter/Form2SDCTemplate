@@ -18,6 +18,24 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.2] - 2026-02-19
+
+### Changed
+- Update default model to gemini-3-flash-preview
+- Restructure Colab notebook: analyze form first, then search catalog with extracted field names
+- SDCStudio catalog search now uses extracted field/cluster names instead of filename
+
+### Added
+- API key setup instructions for Gemini and SDCStudio in Colab notebook
+- SDCStudio catalog integration for component reuse in generated templates
+- Dev branch workflow documentation in CLAUDE.md
+
+### Fixed
+- Fix SDCStudio URL to sdcstudio.axius-sdc.com
+- Fix notebook duplicate cells from successive edits
+
+---
+
 ## [4.2.1] - 2026-02-19
 
 ### Fixed
@@ -161,6 +179,7 @@ aligned with SDC Generation 4.
 
 | Version | Release Date | Major Changes |
 |---------|-------------|---------------|
+| 4.2.2   | 2026-02-19  | Notebook restructure, SDCStudio catalog integration |
 | 4.2.1   | 2026-02-19  | PyPI packaging fix, CI test workflow |
 | 4.2.0   | 2026-02-18  | Python package + Colab notebook, full validator |
 | 4.0.0   | 2025-11-05  | Initial release with full documentation suite |
@@ -283,7 +302,8 @@ See [GitHub Contributors](https://github.com/SemanticDataCharter/Form2SDCTemplat
 
 *For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)*
 
-[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.1...HEAD
+[Unreleased]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.2...HEAD
+[4.2.2]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.1...v4.2.2
 [4.2.1]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.2.0...v4.2.1
 [4.2.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/compare/v4.0.0...v4.2.0
 [4.0.0]: https://github.com/SemanticDataCharter/Form2SDCTemplate/releases/tag/v4.0.0
