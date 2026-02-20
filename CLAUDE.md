@@ -86,7 +86,7 @@ pytest tests/test_validator.py -v
 ### Package Architecture
 
 - **types.py**: User-friendly types (text, integer, decimal) mapped to SDC4 types (XdString, XdCount, XdQuantity) via `resolve_sdc4_type()`
-- **validator.py**: Stateless validator — create new instance per validation call. Supports both `project_name` (spec) and `dataset.name` (Form2SDCTemplate.md) YAML formats
+- **validator.py**: Stateless validator — create new instance per validation call. Requires `dataset.name` nested YAML format
 - **template_builder.py**: Pure Python, no LLM calls. `TemplateBuilder.build(FormAnalysis)` → markdown string
 - **analyzer.py**: `GeminiAnalyzer` uses `response_schema=FormAnalysis` for structured output (no JSON parsing needed)
 - **core.py**: `FormToTemplatePipeline.process()` chains analyze → build → validate

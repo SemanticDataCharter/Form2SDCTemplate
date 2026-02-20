@@ -37,7 +37,8 @@ class TestFrontMatter:
         )
         result = builder.build(analysis)
         assert '---' in result
-        assert 'project_name: "Test"' in result
+        assert 'dataset:' in result
+        assert '  name: "Test"' in result
         assert 'source_language: "English"' in result
         assert 'template_version: "4.0.0"' in result
 
@@ -50,8 +51,8 @@ class TestFrontMatter:
             data=ClusterDefinition(name="Root"),
         )
         result = builder.build(analysis)
-        assert 'description: "A description"' in result
-        assert 'author: "Test Author"' in result
+        assert '  description: "A description"' in result
+        assert '  creator: "Test Author"' in result
         assert 'domain: "Healthcare"' in result
 
 
