@@ -6,16 +6,17 @@ import pytest
 @pytest.fixture
 def valid_front_matter():
     """Minimal valid YAML front matter block."""
-    return 'project_name: "Test"\nsource_language: "English"\ntemplate_version: "1.0.0"'
+    return 'template_version: "1.0.0"\ndataset:\n  name: "Test"\nsource_language: "English"'
 
 
 @pytest.fixture
 def valid_minimal_template():
     """Minimal valid template with Data section and one component."""
     return """---
-project_name: "Minimal"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Minimal"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -34,11 +35,12 @@ template_version: "1.0.0"
 def valid_complete_template():
     """Complete template with all types from spec Test 2."""
     return """---
-project_name: "Complete Example"
-source_language: "English"
 template_version: "1.0.0"
-description: "Comprehensive test template"
-author: "Test Suite"
+dataset:
+  name: "Complete Example"
+  description: "Comprehensive test template"
+  creator: "Test Suite"
+source_language: "English"
 ---
 
 ## Data: Patient Record

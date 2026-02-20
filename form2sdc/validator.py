@@ -1,7 +1,7 @@
 """Form2SDCTemplate validator implementing all rules from VALIDATOR_SPECIFICATION.md.
 
-Supports both Form2SDCTemplate.md v4.1.0 YAML format (dataset.name) and
-validator spec format (project_name). Normalizes internally.
+Requires Form2SDCTemplate.md v4.1.0 YAML format with nested dataset object
+(dataset.name, dataset.description).
 """
 
 from __future__ import annotations
@@ -218,7 +218,7 @@ class Form2SDCValidator:
                     "E-DOC-002",
                     2,
                     "YAML front matter must be a mapping (key: value pairs)",
-                    fix="Ensure front matter contains key-value pairs like 'project_name: \"My Project\"'",
+                    fix="Ensure front matter contains key-value pairs like 'dataset:\\n  name: \"My Dataset\"'",
                 )
                 return None
             return result
@@ -239,23 +239,21 @@ class Form2SDCValidator:
     def _validate_front_matter(self, fm: dict) -> None:
         """Validate YAML front matter fields.
 
-        Supports both validator spec format (project_name, source_language)
-        and Form2SDCTemplate.md format (dataset.name, dataset.description).
+        Requires nested dataset object with name and description fields.
         """
-        # Normalize: support both formats
-        normalized = self._normalize_front_matter(fm)
+        dataset = fm.get("dataset")
 
-        # E-DOC-003: project_name required
-        if not normalized.get("project_name"):
+        # E-DOC-003: dataset.name required
+        if not isinstance(dataset, dict) or not dataset.get("name"):
             self._add_error(
                 "E-DOC-003",
                 2,
-                "Missing required field 'project_name' in YAML front matter",
-                fix="Add 'project_name: \"Your Project Name\"' to front matter",
+                "Missing required field 'dataset.name' in YAML front matter",
+                fix="Add 'dataset:\\n  name: \"Your Dataset Name\"' to front matter",
             )
 
         # E-DOC-004: source_language required
-        if not normalized.get("source_language"):
+        if not fm.get("source_language"):
             self._add_error(
                 "E-DOC-004",
                 2,
@@ -264,7 +262,7 @@ class Form2SDCValidator:
             )
 
         # E-DOC-005: template_version required
-        if not normalized.get("template_version"):
+        if not fm.get("template_version"):
             self._add_error(
                 "E-DOC-005",
                 2,
@@ -273,51 +271,20 @@ class Form2SDCValidator:
             )
 
         # S-QL-005: Metadata suggestions
-        if "description" not in fm and not (
-            isinstance(fm.get("dataset"), dict)
-            and "description" in fm["dataset"]
-        ):
+        if not isinstance(dataset, dict) or "description" not in dataset:
             self._add_suggestion(
                 "S-QL-005",
                 2,
-                "Consider adding a 'description' field to front matter",
-                fix="Add 'description: \"Brief description of the template\"'",
+                "Consider adding a 'dataset.description' field to front matter",
+                fix="Add 'description: \"Brief description\"' under the dataset key",
             )
-        if "author" not in fm and "creator" not in fm and not (
-            isinstance(fm.get("dataset"), dict)
-            and "creator" in fm["dataset"]
-        ):
+        if not isinstance(dataset, dict) or "creator" not in dataset:
             self._add_suggestion(
                 "S-QL-005",
                 2,
-                "Consider adding an 'author' field to front matter for traceability",
-                fix="Add 'author: \"Your Name or Organization\"'",
+                "Consider adding a 'dataset.creator' field to front matter for traceability",
+                fix="Add 'creator: \"Your Name or Organization\"' under the dataset key",
             )
-
-    def _normalize_front_matter(self, fm: dict) -> dict:
-        """Normalize front matter to canonical field names.
-
-        Handles both:
-        - Validator spec format: project_name, source_language, template_version
-        - Form2SDCTemplate.md format: dataset.name, dataset.description, template_version
-        """
-        normalized: dict = {}
-
-        # project_name: direct or dataset.name
-        if "project_name" in fm:
-            normalized["project_name"] = fm["project_name"]
-        elif isinstance(fm.get("dataset"), dict) and fm["dataset"].get("name"):
-            normalized["project_name"] = fm["dataset"]["name"]
-
-        # source_language: direct
-        if "source_language" in fm:
-            normalized["source_language"] = fm["source_language"]
-
-        # template_version: direct
-        if "template_version" in fm:
-            normalized["template_version"] = fm["template_version"]
-
-        return normalized
 
     # ── Component parsing ────────────────────────────────────────────
 

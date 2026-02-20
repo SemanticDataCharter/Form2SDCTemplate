@@ -83,18 +83,21 @@ class TemplateBuilder:
 
     def _render_front_matter(self, analysis: FormAnalysis) -> str:
         lines = ["---"]
-        lines.append(f'project_name: "{analysis.dataset_name}"')
-        lines.append(f'source_language: "{analysis.source_language}"')
         lines.append('template_version: "4.0.0"')
+        lines.append("dataset:")
+        lines.append(f'  name: "{analysis.dataset_name}"')
 
         if analysis.dataset_description:
             # Escape quotes in description
             desc = analysis.dataset_description.replace('"', '\\"')
-            lines.append(f'description: "{desc}"')
-        if analysis.creator:
-            lines.append(f'author: "{analysis.creator}"')
+            lines.append(f'  description: "{desc}"')
+
         if analysis.domain:
-            lines.append(f'domain: "{analysis.domain}"')
+            lines.append(f'  domain: "{analysis.domain}"')
+        if analysis.creator:
+            lines.append(f'  creator: "{analysis.creator}"')
+
+        lines.append(f'source_language: "{analysis.source_language}"')
 
         lines.append("---")
         return "\n".join(lines)

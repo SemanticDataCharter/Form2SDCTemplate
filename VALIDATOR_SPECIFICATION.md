@@ -74,9 +74,11 @@ A valid Form2SDCTemplate document consists of:
 ```markdown
 ---
 # YAML Front Matter (Required)
-project_name: "string"
-source_language: "string"
 template_version: "string"
+dataset:
+  name: "string"
+  description: "string"
+source_language: "string"
 ---
 
 # Markdown Body (Required)
@@ -89,13 +91,14 @@ Child components with keywords (Optional)
 ### 2.2 YAML Front Matter
 
 **Required Fields:**
-- `project_name`: Non-empty string, no special characters except `-`, `_`, spaces
-- `source_language`: Valid language code (ISO 639-1 or full name)
 - `template_version`: Semantic version string aligned with SDC specification (currently "4.0.0" for SDC4)
+- `dataset.name`: Non-empty string, no special characters except `-`, `_`, spaces
+- `source_language`: Valid language code (ISO 639-1 or full name)
 
 **Optional Fields:**
-- `description`: String describing the template
-- `author`: Author name or organization
+- `dataset.description`: String describing the dataset
+- `dataset.domain`: Domain category (Healthcare, Finance, Government, etc.)
+- `dataset.creator`: Author name or organization
 - `created_date`: ISO 8601 date string
 - `keywords`: Array of strings for categorization
 - `notes`: Additional information
@@ -103,11 +106,13 @@ Child components with keywords (Optional)
 **Example:**
 ```yaml
 ---
-project_name: "Patient Demographics"
-source_language: "English"
 template_version: "4.0.0"
-description: "Demographics for clinical trial enrollment"
-author: "Clinical Research Team"
+dataset:
+  name: "Patient Demographics"
+  description: "Demographics for clinical trial enrollment"
+  domain: "Healthcare"
+  creator: "Clinical Research Team"
+source_language: "English"
 created_date: "2025-01-15"
 keywords: ["demographics", "clinical-trial", "patient-data"]
 notes: "Based on FDA form 1572"
@@ -131,9 +136,10 @@ notes: "Based on FDA form 1572"
 **Example:**
 ```markdown
 ---
-project_name: "Example"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Example"
+source_language: "English"
 ---
 
 ## Patient Record
@@ -369,7 +375,7 @@ Validators SHOULD warn about deprecated keywords but accept them.
 |------|------|---------|
 | E-DOC-001 | Document must start with YAML front matter | Missing `---` delimiters |
 | E-DOC-002 | YAML front matter must be valid YAML syntax | Unclosed quotes, invalid indentation |
-| E-DOC-003 | `project_name` is required in front matter | Empty or missing field |
+| E-DOC-003 | `dataset.name` is required in front matter | Empty or missing field |
 | E-DOC-004 | `source_language` is required in front matter | Empty or missing field |
 | E-DOC-005 | `template_version` is required in front matter | Empty or missing field |
 | E-DOC-006 | Markdown body must exist after front matter | Empty document after `---` |
@@ -380,11 +386,11 @@ Validators SHOULD warn about deprecated keywords but accept them.
 {
   "code": "E-DOC-003",
   "severity": "CRITICAL",
-  "message": "Missing required field 'project_name' in YAML front matter",
+  "message": "Missing required field 'dataset.name' in YAML front matter",
   "line": 2,
   "column": 1,
   "context": "---\nsource_language: English",
-  "fix": "Add 'project_name: \"Your Project Name\"' to front matter"
+  "fix": "Add 'dataset:\\n  name: \"Your Dataset Name\"' to front matter"
 }
 ```
 
@@ -804,8 +810,10 @@ function validateTemplate(markdownContent: string) -> ValidationResult:
 ```pseudocode
 function validateFrontMatter(frontMatter: object, result: ValidationResult):
     # Required fields
-    if "project_name" not in frontMatter or frontMatter["project_name"].isEmpty():
-        result.addError("E-DOC-003", line=2, message="Missing required field 'project_name'")
+    dataset = frontMatter.get("dataset")
+
+    if dataset is not object or dataset.get("name").isEmpty():
+        result.addError("E-DOC-003", line=2, message="Missing required field 'dataset.name'")
 
     if "source_language" not in frontMatter or frontMatter["source_language"].isEmpty():
         result.addError("E-DOC-004", line=2, message="Missing required field 'source_language'")
@@ -814,11 +822,11 @@ function validateFrontMatter(frontMatter: object, result: ValidationResult):
         result.addError("E-DOC-005", line=2, message="Missing required field 'template_version'")
 
     # Optional quality suggestions
-    if "description" not in frontMatter:
-        result.addSuggestion("S-QL-005", line=2, message="Consider adding 'description' field")
+    if dataset is not object or "description" not in dataset:
+        result.addSuggestion("S-QL-005", line=2, message="Consider adding 'dataset.description' field")
 
-    if "author" not in frontMatter:
-        result.addSuggestion("S-QL-005", line=2, message="Consider adding 'author' field")
+    if dataset is not object or "creator" not in dataset:
+        result.addSuggestion("S-QL-005", line=2, message="Consider adding 'dataset.creator' field")
 ```
 
 ### 5.3 Component Parsing
@@ -1105,12 +1113,16 @@ class Form2SDCValidator:
 
     def _validate_front_matter(self, front_matter: dict):
         """Validate required YAML fields."""
-        required_fields = ["project_name", "source_language", "template_version"]
+        dataset = front_matter.get("dataset")
 
-        for field in required_fields:
-            if field not in front_matter or not front_matter[field]:
-                code = f"E-DOC-00{required_fields.index(field) + 3}"
-                self._add_error(code, 2, f"Missing required field '{field}'")
+        if not isinstance(dataset, dict) or not dataset.get("name"):
+            self._add_error("E-DOC-003", 2, "Missing required field 'dataset.name'")
+
+        if not front_matter.get("source_language"):
+            self._add_error("E-DOC-004", 2, "Missing required field 'source_language'")
+
+        if not front_matter.get("template_version"):
+            self._add_error("E-DOC-005", 2, "Missing required field 'template_version'")
 
     def _parse_components(self, markdown_body: str):
         """Parse component blocks from markdown."""
@@ -1381,14 +1393,19 @@ export class Form2SDCValidator {
   }
 
   private validateFrontMatter(frontMatter: any): void {
-    const requiredFields = ['project_name', 'source_language', 'template_version'];
-    const errorCodes = ['E-DOC-003', 'E-DOC-004', 'E-DOC-005'];
+    const dataset = frontMatter?.dataset;
 
-    requiredFields.forEach((field, index) => {
-      if (!frontMatter || !frontMatter[field] || frontMatter[field].trim() === '') {
-        this.addError(errorCodes[index], 2, `Missing required field '${field}'`);
-      }
-    });
+    if (!dataset || typeof dataset !== 'object' || !dataset.name || dataset.name.trim() === '') {
+      this.addError('E-DOC-003', 2, "Missing required field 'dataset.name'");
+    }
+
+    if (!frontMatter?.source_language || frontMatter.source_language.trim() === '') {
+      this.addError('E-DOC-004', 2, "Missing required field 'source_language'");
+    }
+
+    if (!frontMatter?.template_version || frontMatter.template_version.trim() === '') {
+      this.addError('E-DOC-005', 2, "Missing required field 'template_version'");
+    }
   }
 
   private parseComponents(markdownBody: string): any[] {
@@ -1695,14 +1712,28 @@ impl Form2SDCValidator {
     }
 
     fn validate_front_matter(&mut self, front_matter: &HashMap<String, serde_yaml::Value>) {
-        let required_fields = vec!["project_name", "source_language", "template_version"];
-        let error_codes = vec!["E-DOC-003", "E-DOC-004", "E-DOC-005"];
+        // Check dataset.name (nested under dataset object)
+        let has_dataset_name = front_matter.get("dataset")
+            .and_then(|v| v.as_mapping())
+            .and_then(|m| m.get(&serde_yaml::Value::String("name".to_string())))
+            .and_then(|v| v.as_str())
+            .map(|s| !s.is_empty())
+            .unwrap_or(false);
 
-        for (field, code) in required_fields.iter().zip(error_codes.iter()) {
-            if !front_matter.contains_key(*field) ||
-               front_matter.get(*field).and_then(|v| v.as_str()).map(|s| s.is_empty()).unwrap_or(true) {
-                self.add_error(code, 2, &format!("Missing required field '{}'", field), None, None);
-            }
+        if !has_dataset_name {
+            self.add_error("E-DOC-003", 2, "Missing required field 'dataset.name'", None, None);
+        }
+
+        // Check source_language
+        if !front_matter.contains_key("source_language") ||
+           front_matter.get("source_language").and_then(|v| v.as_str()).map(|s| s.is_empty()).unwrap_or(true) {
+            self.add_error("E-DOC-004", 2, "Missing required field 'source_language'", None, None);
+        }
+
+        // Check template_version
+        if !front_matter.contains_key("template_version") ||
+           front_matter.get("template_version").and_then(|v| v.as_str()).map(|s| s.is_empty()).unwrap_or(true) {
+            self.add_error("E-DOC-005", 2, "Missing required field 'template_version'", None, None);
         }
     }
 
@@ -1925,9 +1956,10 @@ Validators MUST pass these test suites:
 
 ```markdown
 ---
-project_name: "Minimal"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Minimal"
+source_language: "English"
 ---
 
 ## Root
@@ -1955,11 +1987,12 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Complete Example"
-source_language: "English"
 template_version: "1.0.0"
-description: "Comprehensive test template"
-author: "Test Suite"
+dataset:
+  name: "Complete Example"
+  description: "Comprehensive test template"
+  creator: "Test Suite"
+source_language: "English"
 ---
 
 ## Patient Record
@@ -2073,7 +2106,8 @@ author: "Test Suite"
 
 ```markdown
 ---
-project_name: "Test"
+dataset:
+  name: "Test"
 ---
 
 ## Root
@@ -2102,9 +2136,10 @@ project_name: "Test"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2134,9 +2169,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2167,9 +2203,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2201,9 +2238,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2234,9 +2272,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ### Name
@@ -2263,9 +2302,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2295,9 +2335,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2321,9 +2362,10 @@ template_version: "1.0.0"
 
 ```markdown
 ---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Root
@@ -2393,31 +2435,42 @@ All tests passed! 🎉
   "title": "Form2SDCTemplate Front Matter",
   "description": "Schema for YAML front matter in Form2SDCTemplate documents",
   "type": "object",
-  "required": ["project_name", "source_language", "template_version"],
+  "required": ["template_version", "dataset", "source_language"],
   "properties": {
-    "project_name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 255,
-      "description": "Name of the project/data model"
-    },
-    "source_language": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Language of the source document (ISO 639-1 code or full name)"
-    },
     "template_version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
       "description": "Semantic version of the template format"
     },
-    "description": {
-      "type": "string",
-      "description": "Optional description of the template"
+    "dataset": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "Name of the dataset"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the dataset"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain category (Healthcare, Finance, Government, etc.)"
+        },
+        "creator": {
+          "type": "string",
+          "description": "Author or organization"
+        }
+      },
+      "additionalProperties": false
     },
-    "author": {
+    "source_language": {
       "type": "string",
-      "description": "Author or organization"
+      "minLength": 1,
+      "description": "Language of the source document (ISO 639-1 code or full name)"
     },
     "created_date": {
       "type": "string",
@@ -3000,7 +3053,7 @@ Open a PR to add your validator to this registry with:
 |------|----------|-------------|
 | E-DOC-001 | Document | Missing YAML front matter |
 | E-DOC-002 | Document | Invalid YAML syntax |
-| E-DOC-003 | Document | Missing project_name |
+| E-DOC-003 | Document | Missing dataset.name |
 | E-DOC-004 | Document | Missing source_language |
 | E-DOC-005 | Document | Missing template_version |
 | E-DOC-006 | Document | Empty markdown body |

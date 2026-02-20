@@ -51,7 +51,8 @@ class TestSpecCriticalErrors:
     def test_04_missing_required_fields(self, validator):
         """Test 4: Missing source_language and template_version."""
         content = """---
-project_name: "Test"
+dataset:
+  name: "Test"
 ---
 
 ## Data: Root
@@ -67,9 +68,10 @@ project_name: "Test"
     def test_05_invalid_component_type(self, validator):
         """Test 5: Invalid component Type value."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -90,9 +92,10 @@ template_version: "1.0.0"
     def test_06_missing_units_for_quantified(self, validator):
         """Test 6: Missing Units for XdQuantity."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -114,9 +117,10 @@ template_version: "1.0.0"
     def test_07_xdstring_pattern_and_enumeration(self, validator):
         """Test 7: XdString with both Pattern and Enumeration."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -139,9 +143,10 @@ template_version: "1.0.0"
     def test_08_xdboolean_with_enumeration(self, validator):
         """Test 8: XdBoolean with Enumeration."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -163,9 +168,10 @@ template_version: "1.0.0"
     def test_09_no_cluster_component(self, validator):
         """Test 9: No Cluster component found."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ### Name
@@ -183,9 +189,10 @@ class TestSpecEdgeCases:
     def test_10_deprecated_values_keyword(self, validator):
         """Test 10: Deprecated 'Values' keyword produces warning."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -204,9 +211,10 @@ template_version: "1.0.0"
     def test_11_component_reuse(self, validator):
         """Test 11: Valid component reuse syntax."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -224,9 +232,10 @@ template_version: "1.0.0"
     def test_12_empty_units_value(self, validator):
         """Test 12: Empty Units value."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -254,7 +263,8 @@ class TestDocumentStructure:
     def test_invalid_yaml_syntax(self, validator):
         """E-DOC-002: Invalid YAML."""
         content = """---
-project_name: "Test
+dataset:
+  name: "Test
 source_language: "English"
 ---
 
@@ -269,9 +279,10 @@ source_language: "English"
     def test_empty_body(self, validator):
         """E-DOC-006: Empty body after front matter."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 """
@@ -279,8 +290,8 @@ template_version: "1.0.0"
         assert result.valid is False
         assert any(e.code == "E-DOC-006" for e in result.errors)
 
-    def test_missing_project_name(self, validator):
-        """E-DOC-003: Missing project_name."""
+    def test_missing_dataset_name(self, validator):
+        """E-DOC-003: Missing dataset.name."""
         content = """---
 source_language: "English"
 template_version: "1.0.0"
@@ -301,9 +312,10 @@ class TestComponentStructure:
     def test_type_not_first_keyword(self, validator):
         """E-CMP-003: Type must be first keyword."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -325,9 +337,10 @@ template_version: "1.0.0"
     def test_duplicate_component_names(self, validator):
         """E-CMP-005: Duplicate component names."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -350,9 +363,10 @@ template_version: "1.0.0"
     def test_missing_type_keyword(self, validator):
         """E-CMP-001: Missing Type keyword with name-based suggestion."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -374,9 +388,10 @@ class TestBusinessLogic:
     def test_xdboolean_with_pattern(self, validator):
         """E-BIZ-002: XdBoolean cannot have Pattern."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -395,9 +410,10 @@ template_version: "1.0.0"
     def test_min_length_exceeds_max_length(self, validator):
         """E-BIZ-004: Min Length > Max Length."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -417,9 +433,10 @@ template_version: "1.0.0"
     def test_min_magnitude_exceeds_max(self, validator):
         """E-BIZ-005: Min Magnitude > Max Magnitude."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -440,9 +457,10 @@ template_version: "1.0.0"
     def test_min_date_exceeds_max_date(self, validator):
         """E-BIZ-006: Min Date > Max Date."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -463,9 +481,10 @@ template_version: "1.0.0"
     def test_invalid_regex_pattern(self, validator):
         """E-BIZ-007: Invalid regex pattern."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -488,9 +507,10 @@ class TestSyntaxErrors:
     def test_invalid_numeric_value(self, validator):
         """E-SYN-002: Non-numeric value for numeric keyword."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -510,9 +530,10 @@ template_version: "1.0.0"
     def test_invalid_component_reference(self, validator):
         """E-SYN-003: Invalid @Project:Label format."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -534,9 +555,10 @@ class TestRequiredFields:
     def test_xdcount_requires_units(self, validator):
         """E-REQ-001: XdCount requires Units."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -558,9 +580,10 @@ template_version: "1.0.0"
     def test_xdfloat_requires_units(self, validator):
         """E-REQ-001: XdFloat requires Units."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -579,9 +602,10 @@ template_version: "1.0.0"
     def test_xddouble_requires_units(self, validator):
         """E-REQ-001: XdDouble requires Units."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -600,9 +624,10 @@ template_version: "1.0.0"
     def test_xdordinal_requires_enumeration(self, validator):
         """E-REQ-003: XdOrdinal requires Enumeration."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -625,9 +650,10 @@ class TestWarnings:
     def test_missing_description_warning(self, validator):
         """W-BP-001: Missing Description."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -644,9 +670,10 @@ template_version: "1.0.0"
     def test_short_component_name(self, validator):
         """W-BP-002: Short component name."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -664,9 +691,10 @@ template_version: "1.0.0"
     def test_deprecated_unit_keyword(self, validator):
         """W-DEP-002: Deprecated 'Unit' keyword."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -685,9 +713,10 @@ template_version: "1.0.0"
     def test_temporal_without_temporal_type(self, validator):
         """W-BP-006: XdTemporal without Temporal Type."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "1.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -709,9 +738,10 @@ class TestSectionHandling:
     def test_data_section_not_treated_as_component(self, validator):
         """Data section heading should be skipped by component parser."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Clinical Records
@@ -730,9 +760,10 @@ template_version: "4.0.0"
     def test_subject_section_not_treated_as_component(self, validator):
         """Subject section should not require **Type** keyword."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Subject: Respondent
@@ -756,9 +787,10 @@ template_version: "4.0.0"
     def test_all_section_types_accepted(self, validator):
         """All 8 section types should be accepted without errors."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Clinical Data
@@ -824,9 +856,10 @@ template_version: "4.0.0"
     def test_data_section_still_required(self, validator):
         """Even with other sections, a Data section with Cluster must exist."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Subject: Respondent
@@ -845,9 +878,10 @@ template_version: "4.0.0"
     def test_workflow_section_skipped(self, validator):
         """Workflow section heading should not be parsed as component."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -865,9 +899,10 @@ template_version: "4.0.0"
     def test_attestation_section_skipped(self, validator):
         """Attestation section heading should not be parsed as component."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -886,9 +921,10 @@ template_version: "4.0.0"
     def test_audit_section_skipped(self, validator):
         """Audit section heading should not be parsed as component."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -907,9 +943,10 @@ template_version: "4.0.0"
     def test_links_section_skipped(self, validator):
         """Links section heading should not be parsed as component."""
         content = """---
-project_name: "Test"
-source_language: "English"
 template_version: "4.0.0"
+dataset:
+  name: "Test"
+source_language: "English"
 ---
 
 ## Data: Root
@@ -947,23 +984,6 @@ source_language: "English"
         result = validator.validate(content)
         assert result.valid is True
 
-    def test_validator_spec_format(self, validator):
-        """Accept validator spec format with project_name."""
-        content = """---
-project_name: "Test"
-source_language: "English"
-template_version: "1.0.0"
----
-
-## Data: Root
-
-**Type**: Cluster
-**Description**: Root cluster
-"""
-        result = validator.validate(content)
-        assert result.valid is True
-
-
 class TestMetadata:
     """Test validation result metadata."""
 
@@ -980,7 +1000,8 @@ class TestMetadata:
     def test_error_counts(self, validator):
         """Metadata counts should match actual lists."""
         content = """---
-project_name: "Test"
+dataset:
+  name: "Test"
 ---
 
 ### Name
