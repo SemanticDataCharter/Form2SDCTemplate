@@ -1,6 +1,6 @@
 # Form2SDCTemplate
 
-[![Version](https://img.shields.io/badge/version-4.3.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
+[![Version](https://img.shields.io/badge/version-4.4.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![SDC](https://img.shields.io/badge/SDC-4.0-purple)](https://github.com/SemanticDataCharter/SDCRM)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)

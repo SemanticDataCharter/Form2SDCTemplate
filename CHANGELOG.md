@@ -18,6 +18,19 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.4.0] - 2026-02-20
+
+### Changed
+- **BREAKING**: YAML front matter now requires nested `dataset.name` and `dataset.description` instead of flat `project_name` and `description`
+- Validator only accepts `dataset.name` format — removed backward-compatibility for `project_name`
+- Updated VALIDATOR_SPECIFICATION.md: all examples, pseudocode, JSON schema, and language-specific implementation guides
+
+### Removed
+- `_normalize_front_matter()` method from validator
+- `project_name` and flat `description`/`author` support in front matter
+
+---
+
 ## [4.3.0] - 2026-02-19
 
 ### Changed
