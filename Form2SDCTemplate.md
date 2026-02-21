@@ -49,7 +49,7 @@ Every template MUST follow this structure:
 5. Participation Sections (optional — other involved parties)
 6. Root Cluster (primary data grouping)
 7. Column Definitions (individual fields)
-8. Sub-Clusters (optional nested groupings)
+8. Additional Clusters (optional logical groupings)
 ```
 
 ---
@@ -504,50 +504,6 @@ Identifier constraint:
 
 ---
 
-## PART 9: Sub-Clusters (Optional)
-
-Group related columns into sub-clusters for better organization:
-
-```markdown
-## Sub-Cluster: [Sub-Cluster Name]
-
-[Description of this sub-cluster]
-
-**Purpose**: [What this sub-cluster represents]
-**Parent**: [Name of parent cluster]
-**Business Context**: [How this sub-cluster is used]  # Optional
-
-### Column: column_name
-[Column definitions as usual...]
-```
-
-**When to Use Sub-Clusters:**
-- Grouping related fields (e.g., "Contact Information", "Purchase Behavior")
-- Nested structures (e.g., "Shipping Address" under "Order Information")
-- Logical separation of concerns
-
-**Example:**
-```markdown
-## Root Cluster: Customer Profile
-
-### Column: customer_id
-[...]
-
-### Column: email
-[...]
-
-## Sub-Cluster: Purchase Behavior
-
-**Purpose**: Track customer purchasing patterns
-**Parent**: Customer Profile
-
-### Column: purchase_frequency
-[...]
-
-### Column: lifetime_value
-[...]
-```
-
 ---
 
 ## PART 10: Component Reuse (Advanced)
@@ -590,10 +546,9 @@ NIEM state code:
 
 FHIR patient demographics:
 ```markdown
-## Sub-Cluster: Patient Information
+## Cluster: Patient Information
 **ReuseComponent**: @FHIR:Patient
 **Description**: Standard patient demographics
-**Parent**: Clinical Record
 ```
 
 Custom organizational component:
@@ -609,10 +564,9 @@ Custom organizational component:
 You can also reuse entire clusters:
 
 ```markdown
-## Sub-Cluster: Mailing Address
+## Cluster: Mailing Address
 **ReuseComponent**: @NIEM:USAddress
 **Description**: Standard US postal address
-**Parent**: Customer Information
 ```
 
 This inherits all columns from the NIEM USAddress cluster (street, city, state, zip, etc.)
@@ -708,12 +662,11 @@ Patient identification and demographic information.
   - format: "valid phone number with area code"
 **Examples**: (555) 123-4567, 555-987-6543
 
-## Sub-Cluster: Insurance Information
+## Cluster: Insurance Information
 
 Health insurance coverage details.
 
 **Purpose**: Track patient insurance for billing purposes
-**Parent**: Patient Demographics
 
 ### Column: insurance_provider
 **Type**: text
@@ -821,12 +774,11 @@ Informations sur le demandeur du permis.
   - format: "email valide"
 **Examples**: jean.dupont@exemple.fr, contact@entreprise.fr
 
-## Sub-Cluster: Informations Terrain
+## Cluster: Informations Terrain
 
 Informations sur le terrain concerné par la demande.
 
 **Purpose**: Localisation et caractéristiques du terrain
-**Parent**: Informations Demandeur
 
 ### Column: adresse_terrain
 **Type**: text
@@ -1006,12 +958,11 @@ Informações de identificação e dados demográficos do paciente.
 **Description**: Nome completo do pai do paciente (opcional)
 **Examples**: José da Silva, Paulo Santos
 
-## Sub-Cluster: Endereço
+## Cluster: Endereço
 
 Informações de endereço residencial do paciente.
 
 **Purpose**: Localização para contato e área de abrangência da UBS
-**Parent**: Dados Pessoais
 
 ### Column: cep
 **Type**: text
@@ -1089,12 +1040,11 @@ Informações de endereço residencial do paciente.
   - required: true
 **Examples**: SP, RJ, MG
 
-## Sub-Cluster: Contato
+## Cluster: Contato
 
 Informações de contato do paciente.
 
 **Purpose**: Comunicação e agendamento de consultas
-**Parent**: Dados Pessoais
 
 ### Column: telefone_celular
 **Type**: text
@@ -1123,12 +1073,11 @@ Informações de contato do paciente.
 **Business Rules**: Usado para envio de lembretes de consulta
 **Examples**: true, false
 
-## Sub-Cluster: Informações Clínicas
+## Cluster: Informações Clínicas
 
 Dados clínicos básicos do paciente.
 
 **Purpose**: Informações essenciais para atendimento
-**Parent**: Dados Pessoais
 
 ### Column: tipo_sanguineo
 **Type**: text
@@ -1287,12 +1236,11 @@ Informações pessoais do solicitante do CPF.
 **Description**: País de nascimento (se estrangeiro)
 **Examples**: Brasil, Portugal, Argentina
 
-## Sub-Cluster: Documentação
+## Cluster: Documentação
 
 Documentos de identificação do requerente.
 
 **Purpose**: Validação de identidade
-**Parent**: Dados do Requerente
 
 ### Column: tipo_documento
 **Type**: text
@@ -1346,12 +1294,11 @@ Documentos de identificação do requerente.
   - format: "12 dígitos"
 **Examples**: 123456789012, 987654321098
 
-## Sub-Cluster: Endereço Residencial
+## Cluster: Endereço Residencial
 
 Endereço residencial do requerente.
 
 **Purpose**: Localização para correspondência da Receita Federal
-**Parent**: Dados do Requerente
 
 ### Column: cep
 **Type**: text
@@ -1417,12 +1364,11 @@ Endereço residencial do requerente.
   - required: true
 **Examples**: SP, RJ, DF
 
-## Sub-Cluster: Contato
+## Cluster: Contato
 
 Informações de contato para comunicação oficial.
 
 **Purpose**: Canal de comunicação com a Receita Federal
-**Parent**: Dados do Requerente
 
 ### Column: ddd
 **Type**: text
@@ -1590,12 +1536,11 @@ Informações básicas de identificação do cliente.
   - required: true
 **Examples**: ativo, pendente
 
-## Sub-Cluster: Endereço de Entrega Principal
+## Cluster: Endereço de Entrega Principal
 
 Endereço principal para entrega de produtos.
 
 **Purpose**: Local de entrega padrão para pedidos
-**Parent**: Dados do Cliente
 
 ### Column: nome_destinatario
 **Type**: text
@@ -1661,12 +1606,11 @@ Endereço principal para entrega de produtos.
   - required: true
 **Examples**: SP, RJ, MG
 
-## Sub-Cluster: Preferências de Compra
+## Cluster: Preferências de Compra
 
 Preferências e histórico de compras do cliente.
 
 **Purpose**: Personalização e segmentação de marketing
-**Parent**: Dados do Cliente
 
 ### Column: categorias_interesse
 **Type**: text
@@ -1992,8 +1936,8 @@ When a user provides a form or form description, follow these steps:
 - Include enumeration if field has fixed options
 - Provide realistic examples in source language
 
-**7. Organize with Sub-Clusters**
-- Group related fields into sub-clusters
+**7. Organize with Multiple Clusters**
+- Group related fields into separate clusters
 - Use form sections as guidance
 - Create hierarchical structure if form has multiple levels
 
@@ -2069,7 +2013,7 @@ Before providing the template to the user, verify:
 - [ ] YAML front matter present with `template_version: "4.0.0"`
 - [ ] Dataset Overview section with Purpose and Business Context
 - [ ] At least one Root Cluster defined
-- [ ] All data columns are under a cluster (Root or Sub-Cluster)
+- [ ] All data columns are under a cluster
 - [ ] Subject/Provider/Participation sections used when form has clear actors (optional but recommended)
 - [ ] Demographic fields (names, IDs, birth dates) placed under Subject, not Root Cluster (when Subject is used)
 - [ ] No more than one `## Subject:` and one `## Provider:` section
@@ -2191,12 +2135,11 @@ Core patient demographic and contact information.
   - format: "phone number with area code"
 **Examples**: (555) 123-4567, 555-987-6543
 
-## Sub-Cluster: Emergency Contact
+## Cluster: Emergency Contact
 
 Emergency contact person information.
 
 **Purpose**: Contact person in case of patient emergency
-**Parent**: Patient Information
 **Business Context**: Critical for emergency situations when patient cannot communicate
 
 ### Column: emergency_contact_name
@@ -2299,7 +2242,7 @@ You now have everything needed to generate SDCStudio templates:
 3. **Subject/Provider/Participation** - Model who is involved (optional but recommended when actors exist)
 4. **Root Cluster** - Primary data grouping (the "what")
 5. **Columns** - Individual fields with Type, Description, Examples, and optional constraints
-6. **Sub-Clusters** - Nested groupings for related fields
+6. **Multiple Clusters** - Logical groupings for related fields
 7. **Language Rules** - Keywords in English, content in source language
 8. **Quality Checklist** - Validate before providing to user
 9. **Catalog API** - Query published components for reuse (if HTTP access available)

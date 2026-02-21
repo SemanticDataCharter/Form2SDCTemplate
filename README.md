@@ -232,7 +232,7 @@ I have three related forms (PDFs attached):
 2. Medical History
 3. Insurance Information
 
-Please use Form2SDCTemplate.md to create a single template with three sub-clusters,
+Please use Form2SDCTemplate.md to create a single template with three clusters,
 one for each form. Use appropriate data types and maintain the relationships between
 sections.
 ```
