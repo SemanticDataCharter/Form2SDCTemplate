@@ -18,6 +18,14 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.5.1] - 2026-05-08
+
+### Changed
+
+- Validator: `S-COL-003` ("column has no `**Examples**:`") no longer fires for enumerated columns. The enumeration already documents the complete allowed value set; adding `**Examples**:` would be a redundant subset. Boolean columns were already exempt for the same reason. Fixes 16 spurious suggestions when validating governance-style templates whose categorical columns are typically enumerated.
+
+---
+
 ## [4.5.0] - 2026-05-08 — md2pd-aligned rewrite
 
 This release reconciles Form2SDCTemplate end-to-end with the production SDCStudio md2pd parser. Three sources of template-format truth (the LLM instruction document, the Python builder, and the validator) had drifted independently and produced subtly different markdown, none of which md2pd parsed correctly. They now all agree with the parser.

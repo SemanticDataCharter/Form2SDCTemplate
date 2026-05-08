@@ -839,7 +839,14 @@ class Form2SDCValidator:
                 "Add a '**Description**:' so the LLM and downstream consumers understand the field.",
                 component=col.name,
             )
-        if "Examples" not in col.keywords and "Type" in col.keywords:
+        if (
+            "Examples" not in col.keywords
+            and "Type" in col.keywords
+            and "Enumeration" not in col.keywords
+        ):
+            # Booleans and enumerated columns already document their value set:
+            # boolean is implicitly true/false, and **Enumeration**: lists every
+            # allowed value. **Examples**: would be a redundant subset.
             type_lc = col.keywords["Type"].value.strip().lower()
             if type_lc not in {"xdboolean", "boolean", "bool", "flag"}:
                 self._suggestion(
