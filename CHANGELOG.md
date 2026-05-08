@@ -18,6 +18,64 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.2.0] - 2026-05-08 — md2pd-aligned rewrite
+
+This release reconciles Form2SDCTemplate end-to-end with the production SDCStudio md2pd parser. Three sources of template-format truth (the LLM instruction document, the Python builder, and the validator) had drifted independently and produced subtly different markdown, none of which md2pd parsed correctly. They now all agree with the parser.
+
+> **Note on the version regression** (4.4.0 → 4.2.0): pre-rewrite versions claimed conformance the package did not actually deliver. The semver reset signals to consumers that the contract has changed and that templates produced by 4.3 / 4.4 will not parse cleanly under md2pd.
+
+### Changed (BREAKING)
+
+- **Form2SDCTemplate.md (LLM instruction document)** rewritten to match md2pd:
+  - Column heading is `### name` (not `### Column: name`).
+  - The primary cluster section is `## Data: <Name>` (not `## Cluster:` or `## Root Cluster:`).
+  - Exactly one `## Data:` section per template; md2pd discards all but the last.
+  - All "Multiple Clusters" / "Cluster-Level Reuse" guidance removed — md2pd has no concept of cluster-level component reuse.
+  - PART 8 (Constraints) now teaches only `required`, `range`, and `precision` sub-keys — the only ones md2pd reads. `unique` and `format` removed.
+  - Migration banner added at the top of the document.
+
+- **`form2sdc.template_builder.TemplateBuilder`** rewritten:
+  - Emits a real `# Dataset Overview` H1 with `**Purpose**:` and `**Business Context**:` keywords (the old HTML-comment form was silently dropped by md2pd).
+  - Emits `enrichment.enable_llm` in the YAML front matter.
+  - Emits the `## Data:` cluster description as the first prose paragraph (md2pd reads it from there) rather than as a `**Description**:` keyword.
+  - Removes `**Type**: Cluster`, `**Description**:`, and `**Cardinality**:` lines at the section level (md2pd does not parse them at that level).
+  - Constraints render only `required`, `range`, and `precision`. `min_value` + `max_value` fold into a single `range: [min, max]` line, with `null` for unbounded ends.
+  - `**Semantic Links**:` renders as a bulleted list (one URI per line) rather than a comma-joined single line.
+  - `**Committer**:` removed from Attestation rendering (md2pd does not parse it).
+  - `source_language` YAML key removed.
+
+- **`form2sdc.types`** — Pydantic models slimmed down:
+  - `Constraint` keeps only `required`, `min_value`, `max_value`, `precision`. Removed: `unique`, `format`, `min_length`, `max_length`, `pattern`, `temporal_type`, `min_date`, `max_date`, `default_value`, `cardinality`, `media_types`, `max_size`, `fraction_digits`.
+  - `ClusterDefinition.constraints` removed; added `rules: list[str]` for cross-field validation rules.
+  - `AttestationDefinition.committer` removed.
+  - `FormAnalysis.source_language` removed.
+
+- **`form2sdc.validator.Form2SDCValidator`** rewritten:
+  - New rule code scheme rooted in md2pd's actual rules (E-DOC-*, E-SEC-*, E-COL-*, W-YAML-*, W-SEC-*, W-DEP-*, S-*).
+  - All pre-existing rule codes from the previous validator are gone — they checked flat-keyword constraints md2pd never honored.
+  - Adds structural rules: `## Data:` required (E-SEC-002), at most one `## Data:` (E-SEC-003), only the eight named-tree section types accepted (E-SEC-001).
+  - Adds keyword-allowlist enforcement at the column level (E-COL-004 for legacy flat-keyword constraints) and inside `**Constraints**:` blocks (E-COL-007).
+  - Round-trip guarantee: any `FormAnalysis` → `TemplateBuilder.build()` → `Form2SDCValidator.validate()` produces no errors.
+
+- **`VALIDATOR_SPECIFICATION.md`** replaced with a concise spec matching the new rule codes. The 90 KB pre-rewrite spec described rules that no longer exist.
+
+- **Test suite** rewritten end-to-end (`tests/conftest.py`, `tests/test_types.py`, `tests/test_template_builder.py`, `tests/test_validator.py`). 80 tests pass.
+
+### Migration guide
+
+If you have pre-4.2 templates, the highest-leverage fixes:
+
+1. Replace every `### Column: name` heading with `### name`.
+2. Replace `## Root Cluster: …` and `## Cluster: …` headings with a single `## Data: …` section per template; merge any sub-clusters' columns into that single section.
+3. Replace flat-keyword constraints (`**Pattern**:`, `**Min Length**:`, `**Min Magnitude**:`, etc.) with a `**Constraints**:` block using only `required`, `range: [min, max]`, and `precision` sub-keys.
+4. Replace HTML-comment dataset overviews with a `# Dataset Overview` H1 plus `**Purpose**:` and `**Business Context**:` keywords.
+5. Bump `template_version` to `"4.0.0"` (or any 4.x.x).
+6. Remove any `source_language`, `## Cluster: ...` cluster-level reuse blocks, and `**Committer**:` lines.
+
+Run `Form2SDCValidator().validate(template)` on the result; any remaining errors will name a specific rule code documented in `VALIDATOR_SPECIFICATION.md`.
+
+---
+
 ## [4.4.0] - 2026-02-20
 
 ### Changed

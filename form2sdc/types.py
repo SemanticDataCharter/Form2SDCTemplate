@@ -61,29 +61,30 @@ def resolve_sdc4_type(column_type: str) -> str:
 
 
 class Constraint(BaseModel):
-    """Validation constraints for a column."""
+    """Validation constraints for a column.
+
+    Only the constraints that the production md2pd parser acts on are modeled here:
+
+    - ``required`` → sets column nullability (required vs optional).
+    - ``min_value`` / ``max_value`` → rendered as ``range: [min, max]``, used by
+      md2pd to populate the column's ``range_values`` field.
+    - ``precision`` → drives type inference for decimal user types
+      (``precision == 2`` → XdQuantity; ``precision >= 10`` → XdDouble).
+
+    Other validation hints (length limits, regex patterns, format strings,
+    media-type filters, default values, etc.) are intentionally not modeled:
+    md2pd silently drops them, so capturing them here would create false
+    expectations. Express such hints in ``description`` or ``business_rules``
+    as free text instead.
+    """
 
     required: Optional[bool] = None
-    unique: Optional[bool] = None
     min_value: Optional[float] = Field(None, description="Min magnitude/length")
     max_value: Optional[float] = Field(None, description="Max magnitude/length")
-    precision: Optional[int] = Field(None, description="Total significant digits")
-    fraction_digits: Optional[int] = Field(None, description="Decimal places")
-    min_length: Optional[int] = None
-    max_length: Optional[int] = None
-    pattern: Optional[str] = Field(None, description="Regex pattern for validation")
-    format: Optional[str] = Field(None, description="Format description")
-    temporal_type: Optional[str] = Field(
-        None, description="date, time, datetime, or duration"
+    precision: Optional[int] = Field(
+        None,
+        description="Total significant digits; affects md2pd type inference for decimals",
     )
-    min_date: Optional[str] = Field(None, description="ISO 8601 date string")
-    max_date: Optional[str] = Field(None, description="ISO 8601 date string")
-    default_value: Optional[str] = None
-    cardinality: Optional[str] = Field(None, description="e.g. '1..1', '0..*'")
-    media_types: Optional[list[str]] = Field(
-        None, description="Allowed MIME types for XdFile"
-    )
-    max_size: Optional[str] = Field(None, description="Max file size e.g. '10MB'")
 
 
 class EnumerationItem(BaseModel):
@@ -115,14 +116,22 @@ class ColumnDefinition(BaseModel):
 
 
 class ClusterDefinition(BaseModel):
-    """A flat grouping of columns."""
+    """A flat grouping of columns within a named-tree section.
+
+    md2pd treats each ``## Data:`` (or ``## Workflow:``) section as a flat
+    cluster of columns. Cluster-level validation constraints are not supported
+    by md2pd and are intentionally not modeled here.
+    """
 
     name: str = Field(..., description="Cluster name")
     description: str = Field("", description="What this cluster represents")
     purpose: Optional[str] = None
     business_context: Optional[str] = None
+    rules: Optional[list[str]] = Field(
+        None,
+        description="Cross-field validation rules (rendered as **Rules**: bulleted list)",
+    )
     columns: list[ColumnDefinition] = Field(default_factory=list)
-    constraints: Optional[Constraint] = None
 
 
 class PartyDefinition(BaseModel):
@@ -145,13 +154,18 @@ class PartyDefinition(BaseModel):
 
 
 class AttestationDefinition(BaseModel):
-    """Attestation section — fixed fields from SDC4 model."""
+    """Attestation section — fixed fields from SDC4 model.
+
+    md2pd's attestation parser reads ``**View**:``, ``**Proof**:``, and
+    ``**Reason**:`` fields. The committer is modeled separately in the SDC4
+    reference model as a Party and is not parsed from the Attestation section
+    by md2pd, so it is intentionally omitted here.
+    """
 
     name: str
-    view: Optional[str] = Field(None, description="Media type for view")
-    proof: Optional[str] = Field(None, description="Media type for proof")
-    reason: Optional[str] = Field(None, description="Reason text")
-    committer: Optional[str] = Field(None, description="Party description")
+    view: Optional[str] = Field(None, description="View label (e.g. 'Clinical Summary')")
+    proof: Optional[str] = Field(None, description="Proof label (e.g. 'Clinician Signature')")
+    reason: Optional[str] = Field(None, description="Reason label (e.g. 'Attestation Reason')")
 
 
 class AuditDefinition(BaseModel):
@@ -176,7 +190,6 @@ class FormAnalysis(BaseModel):
         None, description="Healthcare, Finance, Government, etc."
     )
     creator: Optional[str] = None
-    source_language: str = Field("English", description="Source document language")
     purpose: Optional[str] = None
     business_context: Optional[str] = None
     primary_use: Optional[str] = None

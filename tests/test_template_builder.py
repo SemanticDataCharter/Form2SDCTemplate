@@ -1,4 +1,11 @@
-"""Tests for form2sdc.template_builder including round-trip validation."""
+"""Tests for ``form2sdc.template_builder`` including round-trip validation.
+
+The round-trip contract: building a template from a FormAnalysis produces
+markdown that the Form2SDCValidator accepts (no errors), and that md2pd
+will parse without rejection or silent data loss.
+"""
+
+from __future__ import annotations
 
 import pytest
 
@@ -17,521 +24,409 @@ from form2sdc.types import (
 )
 
 
-@pytest.fixture
-def builder():
-    return TemplateBuilder()
+# ── Helpers ─────────────────────────────────────────────────────────
 
 
-@pytest.fixture
-def validator():
-    return Form2SDCValidator()
+def _minimal_column(name: str = "x", col_type: ColumnType = ColumnType.TEXT) -> ColumnDefinition:
+    return ColumnDefinition(
+        name=name,
+        column_type=col_type,
+        description=f"Description for {name}",
+        examples=["example1", "example2"],
+    )
 
 
-class TestFrontMatter:
-    """Test YAML front matter generation."""
+def _minimal_data(name: str = "Root") -> ClusterDefinition:
+    return ClusterDefinition(
+        name=name,
+        description="Test data section.",
+        columns=[_minimal_column("field_a"), _minimal_column("field_b", ColumnType.INTEGER)],
+    )
 
-    def test_minimal_front_matter(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
+
+def _minimal_analysis() -> FormAnalysis:
+    return FormAnalysis(
+        dataset_name="Test Dataset",
+        dataset_description="A test dataset.",
+        data=_minimal_data(),
+    )
+
+
+# ── Front matter ────────────────────────────────────────────────────
+
+
+def test_front_matter_has_template_version_4() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert 'template_version: "4.0.0"' in md
+
+
+def test_front_matter_has_dataset_name() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert 'name: "Test Dataset"' in md
+
+
+def test_front_matter_has_enrichment_block() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert "enrichment:" in md
+    assert "enable_llm: true" in md
+
+
+def test_front_matter_disable_enrichment() -> None:
+    analysis = _minimal_analysis()
+    analysis.enable_llm = False
+    md = TemplateBuilder().build(analysis)
+    assert "enable_llm: false" in md
+
+
+def test_front_matter_does_not_emit_source_language() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert "source_language" not in md
+
+
+# ── Dataset overview ────────────────────────────────────────────────
+
+
+def test_dataset_overview_uses_h1_not_html_comment() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert "# Dataset Overview" in md
+    assert "<!-- Dataset:" not in md  # the old HTML-comment form must not appear
+
+
+def test_dataset_overview_renders_purpose_and_business_context() -> None:
+    analysis = _minimal_analysis()
+    analysis.purpose = "Why this dataset exists"
+    analysis.business_context = "How it is used"
+    md = TemplateBuilder().build(analysis)
+    assert "**Purpose**: Why this dataset exists" in md
+    assert "**Business Context**: How it is used" in md
+
+
+# ── Data section ────────────────────────────────────────────────────
+
+
+def test_data_section_uses_data_prefix_not_cluster() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert "## Data: Root" in md
+    assert "## Cluster:" not in md
+    assert "## Root Cluster:" not in md
+
+
+def test_data_section_emits_description_as_prose_not_keyword() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    # The cluster description should appear as prose, NOT as **Description**:
+    assert "Test data section." in md
+    # Check that there's no **Description**: line within the Data section's keywords
+    data_section = md.split("## Data: Root")[1].split("###")[0]
+    assert "**Description**:" not in data_section
+
+
+def test_data_section_does_not_emit_type_cluster_keyword() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    # The old builder emitted **Type**: Cluster at the section level — must be gone.
+    assert "**Type**: Cluster" not in md
+
+
+def test_data_section_emits_rules() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.rules = [
+        "field_a must be before field_b",
+        "At least one of x or y must be provided",
+    ]
+    md = TemplateBuilder().build(analysis)
+    assert "**Rules**:" in md
+    assert "field_a must be before field_b" in md
+
+
+# ── Column rendering ────────────────────────────────────────────────
+
+
+def test_columns_use_simple_h3_no_column_prefix() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert "### field_a" in md
+    assert "### field_b" in md
+    assert "### Column:" not in md
+
+
+def test_column_emits_type_first() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    section = md.split("### field_a")[1].split("###")[0]
+    lines = [line for line in section.split("\n") if line.strip().startswith("**")]
+    assert lines[0].startswith("**Type**:")
+
+
+def test_column_emits_examples_comma_separated() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    assert "**Examples**: example1, example2" in md
+
+
+# ── Constraints ─────────────────────────────────────────────────────
+
+
+def test_constraints_required_only() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(required=True)
+    md = TemplateBuilder().build(analysis)
+    assert "**Constraints**:" in md
+    assert "  - required: true" in md
+
+
+def test_constraints_range_from_min_max_values() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(min_value=0, max_value=120)
+    md = TemplateBuilder().build(analysis)
+    assert "  - range: [0, 120]" in md
+
+
+def test_constraints_range_with_only_min_uses_null_for_max() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(min_value=0)
+    md = TemplateBuilder().build(analysis)
+    assert "  - range: [0, null]" in md
+
+
+def test_constraints_range_with_only_max_uses_null_for_min() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(max_value=999.99)
+    md = TemplateBuilder().build(analysis)
+    assert "  - range: [null, 999.99]" in md
+
+
+def test_constraints_precision() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(precision=2)
+    md = TemplateBuilder().build(analysis)
+    assert "  - precision: 2" in md
+
+
+def test_constraints_does_not_emit_flat_keywords() -> None:
+    """Ensure none of the legacy flat-constraint keywords leak into output."""
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(
+        required=True, min_value=0, max_value=10, precision=2
+    )
+    md = TemplateBuilder().build(analysis)
+    for legacy in (
+        "**Pattern**:",
+        "**Min Length**:",
+        "**Max Length**:",
+        "**Min Magnitude**:",
+        "**Max Magnitude**:",
+        "**Precision**:",
+        "**Fraction Digits**:",
+        "**Temporal Type**:",
+        "**Min Date**:",
+        "**Max Date**:",
+        "**Default Value**:",
+        "**Media Types**:",
+        "**Max Size**:",
+    ):
+        assert legacy not in md, f"Legacy flat keyword leaked into output: {legacy}"
+
+
+# ── Enumeration ─────────────────────────────────────────────────────
+
+
+def test_enumeration_renders_as_bulleted_list() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].enumeration = [
+        EnumerationItem(value="active", description="Account in good standing"),
+        EnumerationItem(value="closed", description="Permanently closed"),
+    ]
+    md = TemplateBuilder().build(analysis)
+    assert "**Enumeration**:" in md
+    assert "  - active: Account in good standing" in md
+    assert "  - closed: Permanently closed" in md
+
+
+# ── Semantic links ──────────────────────────────────────────────────
+
+
+def test_semantic_links_render_as_bulleted_list_not_comma_separated() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].semantic_links = [
+        "https://loinc.org/21112-8/",
+        "http://snomed.info/id/248153007",
+    ]
+    md = TemplateBuilder().build(analysis)
+    assert "**Semantic Links**:" in md
+    # The new form is one URI per bullet line, not comma-joined.
+    assert "  - https://loinc.org/21112-8/" in md
+    assert "  - http://snomed.info/id/248153007" in md
+    assert "https://loinc.org/21112-8/, http://snomed.info" not in md
+
+
+# ── ReuseComponent ──────────────────────────────────────────────────
+
+
+def test_reuse_component_renders_at_column_level() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].reuse_component = "@NIEM:StateUSPostalServiceCode"
+    md = TemplateBuilder().build(analysis)
+    assert "**ReuseComponent**: @NIEM:StateUSPostalServiceCode" in md
+
+
+# ── Subject / Provider / Participation ──────────────────────────────
+
+
+def test_subject_section() -> None:
+    analysis = _minimal_analysis()
+    analysis.subject = PartyDefinition(
+        name="Patient",
+        description="The patient",
+        party_type="subject",
+        columns=[_minimal_column("patient_id")],
+    )
+    md = TemplateBuilder().build(analysis)
+    assert "## Subject: Patient" in md
+    assert "**Description**: The patient" in md
+
+
+def test_participation_section_emits_function_and_mode() -> None:
+    analysis = _minimal_analysis()
+    analysis.participations = [
+        PartyDefinition(
+            name="Examining Clinician",
+            description="Performs examination",
+            party_type="participation",
+            function="Examiner",
+            function_description="Documents the examination",
+            mode="present",
+            mode_description="In person",
+            columns=[_minimal_column("clinician_id")],
         )
-        result = builder.build(analysis)
-        assert '---' in result
-        assert 'dataset:' in result
-        assert '  name: "Test"' in result
-        assert 'source_language: "English"' in result
-        assert 'template_version: "4.0.0"' in result
+    ]
+    md = TemplateBuilder().build(analysis)
+    assert "## Participation: Examining Clinician" in md
+    assert "**Function**: Examiner" in md
+    assert "**Mode**: present" in md
 
-    def test_front_matter_with_metadata(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            dataset_description="A description",
-            domain="Healthcare",
-            creator="Test Author",
-            data=ClusterDefinition(name="Root"),
+
+# ── Attestation / Audit / Links ─────────────────────────────────────
+
+
+def test_attestation_does_not_emit_committer() -> None:
+    analysis = _minimal_analysis()
+    analysis.attestation = AttestationDefinition(
+        name="Sign-off",
+        view="Clinical Summary",
+        proof="Clinician Signature",
+        reason="Attestation Reason",
+    )
+    md = TemplateBuilder().build(analysis)
+    assert "## Attestation: Sign-off" in md
+    assert "**View**: Clinical Summary" in md
+    assert "**Committer**:" not in md
+
+
+def test_audit_section() -> None:
+    analysis = _minimal_analysis()
+    analysis.audit = [
+        AuditDefinition(
+            name="Provenance",
+            system_id="ehr-prod-01",
+            system_user="clinician_jdoe",
+            location="Hospital",
         )
-        result = builder.build(analysis)
-        assert '  description: "A description"' in result
-        assert '  creator: "Test Author"' in result
-        assert 'domain: "Healthcare"' in result
+    ]
+    md = TemplateBuilder().build(analysis)
+    assert "## Audit: Provenance" in md
+    assert "**System ID**: ehr-prod-01" in md
 
 
-class TestDataSection:
-    """Test Data section rendering (was root cluster)."""
-
-    def test_basic_data_section(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Patient Record",
-                description="All patient data",
-            ),
-        )
-        result = builder.build(analysis)
-        assert "## Data: Patient Record" in result
-        assert "**Type**: Cluster" in result
-        assert "**Description**: All patient data" in result
-
-    def test_no_root_cluster_heading(self, builder):
-        """Ensure old '## Root Cluster' format is not used."""
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-        )
-        result = builder.build(analysis)
-        assert "## Root Cluster" not in result
-        assert "## Data: Root" in result
+def test_links_section() -> None:
+    analysis = _minimal_analysis()
+    analysis.links = [
+        "https://www.w3.org/TR/prov-o/",
+        "urn:oid:2.16.840.1.113883.4.1",
+    ]
+    md = TemplateBuilder().build(analysis)
+    assert "## Links:" in md
+    assert "  - https://www.w3.org/TR/prov-o/" in md
+    assert "  - urn:oid:2.16.840.1.113883.4.1" in md
 
 
-class TestColumnRendering:
-    """Test column/field rendering."""
-
-    def test_string_column(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Root",
-                columns=[
-                    ColumnDefinition(
-                        name="Full Name",
-                        column_type=ColumnType.TEXT,
-                        description="Person's name",
-                        examples=["John Doe", "Jane Smith"],
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "### Full Name" in result
-        assert "**Type**: XdString" in result
-        assert "**Description**: Person's name" in result
-        assert "**Examples**: John Doe, Jane Smith" in result
-
-    def test_quantified_column_with_units(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Root",
-                columns=[
-                    ColumnDefinition(
-                        name="Weight",
-                        column_type=ColumnType.DECIMAL,
-                        description="Body weight",
-                        units="kg, lb",
-                        constraints=Constraint(min_value=0, max_value=500),
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "**Type**: XdQuantity" in result
-        assert "**Units**: kg, lb" in result
-        assert "**Min Magnitude**: 0" in result
-        assert "**Max Magnitude**: 500" in result
-
-    def test_boolean_column(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Root",
-                columns=[
-                    ColumnDefinition(
-                        name="Active",
-                        column_type=ColumnType.BOOLEAN,
-                        description="Is active",
-                        constraints=Constraint(default_value="false"),
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "**Type**: XdBoolean" in result
-        assert "**Default Value**: false" in result
-
-    def test_enumeration_rendering(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Root",
-                columns=[
-                    ColumnDefinition(
-                        name="Status",
-                        column_type=ColumnType.TEXT,
-                        description="Account status",
-                        enumeration=[
-                            EnumerationItem(
-                                value="active",
-                                description="Account in good standing",
-                            ),
-                            EnumerationItem(value="inactive", description="Closed"),
-                        ],
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "**Enumeration**:" in result
-        assert "  - active: Account in good standing" in result
-        assert "  - inactive: Closed" in result
-
-    def test_temporal_column(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Root",
-                columns=[
-                    ColumnDefinition(
-                        name="Birth Date",
-                        column_type=ColumnType.DATE,
-                        description="Date of birth",
-                        constraints=Constraint(
-                            temporal_type="date",
-                            min_date="1900-01-01",
-                            max_date="2025-12-31",
-                        ),
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "**Type**: XdTemporal" in result
-        assert "**Temporal Type**: date" in result
-        assert "**Min Date**: 1900-01-01" in result
-
-    def test_reuse_component(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(
-                name="Root",
-                columns=[
-                    ColumnDefinition(
-                        name="State Code",
-                        column_type=ColumnType.TEXT,
-                        description="US state code",
-                        reuse_component="@NIEM:StateUSPostalServiceCode",
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "**ReuseComponent**: @NIEM:StateUSPostalServiceCode" in result
+# ── Round-trip: build → validate ────────────────────────────────────
 
 
-class TestPartyRendering:
-    """Test Subject/Provider/Participation rendering."""
+def test_round_trip_minimal_template_validates() -> None:
+    md = TemplateBuilder().build(_minimal_analysis())
+    result = Form2SDCValidator().validate(md)
+    assert result.valid, (
+        f"Round-trip validation failed:\n"
+        + "\n".join(f"  [{e.code}] {e.message}" for e in result.errors)
+        + f"\n\nGenerated markdown:\n{md}"
+    )
 
-    def test_subject_section(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            subject=PartyDefinition(
-                name="Patient",
-                description="The patient being recorded",
-                party_type="subject",
-                columns=[
-                    ColumnDefinition(
-                        name="MRN",
-                        column_type=ColumnType.IDENTIFIER,
-                        description="Medical record number",
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "## Subject: Patient" in result
-        assert "**Description**: The patient being recorded" in result
-        assert "### MRN" in result
 
-    def test_participation_with_function(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            participations=[
-                PartyDefinition(
-                    name="Physician",
-                    description="Attending doctor",
-                    party_type="participation",
-                    function="Clinician",
-                    function_description="Provides medical care",
-                    mode="In-Person",
-                    mode_description="Physical presence",
+def test_round_trip_with_constraints_validates() -> None:
+    analysis = _minimal_analysis()
+    analysis.data.columns[0].constraints = Constraint(
+        required=True, min_value=0, max_value=100
+    )
+    md = TemplateBuilder().build(analysis)
+    result = Form2SDCValidator().validate(md)
+    assert result.valid, (
+        f"Round-trip with constraints failed:\n"
+        + "\n".join(f"  [{e.code}] {e.message}" for e in result.errors)
+    )
+
+
+def test_round_trip_complete_template_validates() -> None:
+    analysis = FormAnalysis(
+        dataset_name="Patient Registration",
+        dataset_description="Patient demographic data.",
+        creator="Clinical Systems Team",
+        purpose="Capture patient demographics for clinical care.",
+        business_context="Used by clinical staff and billing.",
+        data=ClusterDefinition(
+            name="Patient Demographics",
+            description="Patient identification and demographic information.",
+            purpose="Unique patient identification.",
+            columns=[
+                ColumnDefinition(
+                    name="patient_id",
+                    column_type=ColumnType.IDENTIFIER,
+                    description="Unique patient identifier.",
+                    constraints=Constraint(required=True),
+                    examples=["PAT-12345"],
+                ),
+                ColumnDefinition(
+                    name="age",
+                    column_type=ColumnType.INTEGER,
+                    description="Age in completed years.",
+                    units="years",
+                    constraints=Constraint(required=True, min_value=0, max_value=120),
+                    examples=["25", "42"],
+                ),
+                ColumnDefinition(
+                    name="account_status",
+                    column_type=ColumnType.TEXT,
+                    description="Patient account status.",
+                    enumeration=[
+                        EnumerationItem(value="active", description="Active"),
+                        EnumerationItem(value="closed", description="Closed"),
+                    ],
+                    examples=["active"],
+                ),
+            ],
+        ),
+        subject=PartyDefinition(
+            name="Patient",
+            description="The patient.",
+            party_type="subject",
+            columns=[
+                ColumnDefinition(
+                    name="full_name",
+                    column_type=ColumnType.TEXT,
+                    description="Patient's full name.",
+                    examples=["Jane Doe"],
                 )
             ],
-        )
-        result = builder.build(analysis)
-        assert "## Participation: Physician" in result
-        assert "**Function**: Clinician" in result
-        assert "**Mode**: In-Person" in result
-
-
-class TestWorkflowRendering:
-    """Test Workflow section rendering."""
-
-    def test_workflow_section(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            workflow=ClusterDefinition(
-                name="Status Tracking",
-                description="Workflow state management",
-                columns=[
-                    ColumnDefinition(
-                        name="status",
-                        column_type=ColumnType.TEXT,
-                        description="Current workflow status",
-                    )
-                ],
-            ),
-        )
-        result = builder.build(analysis)
-        assert "## Workflow: Status Tracking" in result
-        assert "**Description**: Workflow state management" in result
-        assert "### status" in result
-
-
-class TestAttestationRendering:
-    """Test Attestation section rendering."""
-
-    def test_attestation_section(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            attestation=AttestationDefinition(
-                name="Clinical Signature",
-                view="application/pdf",
-                proof="application/pkcs7-signature",
-                reason="Treatment authorization",
-            ),
-        )
-        result = builder.build(analysis)
-        assert "## Attestation: Clinical Signature" in result
-        assert "**View**: application/pdf" in result
-        assert "**Proof**: application/pkcs7-signature" in result
-        assert "**Reason**: Treatment authorization" in result
-
-    def test_attestation_minimal(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            attestation=AttestationDefinition(name="Sig"),
-        )
-        result = builder.build(analysis)
-        assert "## Attestation: Sig" in result
-
-
-class TestAuditRendering:
-    """Test Audit section rendering."""
-
-    def test_audit_section(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            audit=[
-                AuditDefinition(
-                    name="EHR Audit",
-                    system_id="ehr-prod-01",
-                    system_user="nurse.jones",
-                    location="Ward 3B",
-                )
-            ],
-        )
-        result = builder.build(analysis)
-        assert "## Audit: EHR Audit" in result
-        assert "**System ID**: ehr-prod-01" in result
-        assert "**System User**: nurse.jones" in result
-        assert "**Location**: Ward 3B" in result
-
-    def test_multiple_audit_sections(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            audit=[
-                AuditDefinition(name="Audit 1", system_id="sys-1"),
-                AuditDefinition(name="Audit 2", system_id="sys-2"),
-            ],
-        )
-        result = builder.build(analysis)
-        assert "## Audit: Audit 1" in result
-        assert "## Audit: Audit 2" in result
-
-
-class TestLinksRendering:
-    """Test Links section rendering."""
-
-    def test_links_section(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-            links=[
-                "https://example.com/ontology/v1",
-                "https://schema.org/MedicalRecord",
-            ],
-        )
-        result = builder.build(analysis)
-        assert "## Links:" in result
-        assert "  - https://example.com/ontology/v1" in result
-        assert "  - https://schema.org/MedicalRecord" in result
-
-
-class TestSectionOrder:
-    """Test that sections render in canonical SDC4 order."""
-
-    def test_canonical_order(self, builder):
-        analysis = FormAnalysis(
-            dataset_name="Order Test",
-            data=ClusterDefinition(name="Data"),
-            subject=PartyDefinition(
-                name="Patient", party_type="subject"
-            ),
-            provider=PartyDefinition(
-                name="Hospital", party_type="provider"
-            ),
-            participations=[
-                PartyDefinition(
-                    name="Physician", party_type="participation"
-                )
-            ],
-            workflow=ClusterDefinition(name="Status"),
-            attestation=AttestationDefinition(name="Sig"),
-            audit=[AuditDefinition(name="Log")],
-            links=["https://example.com"],
-        )
-        result = builder.build(analysis)
-
-        # Verify ordering by finding positions
-        data_pos = result.index("## Data:")
-        subject_pos = result.index("## Subject:")
-        provider_pos = result.index("## Provider:")
-        participation_pos = result.index("## Participation:")
-        workflow_pos = result.index("## Workflow:")
-        attestation_pos = result.index("## Attestation:")
-        audit_pos = result.index("## Audit:")
-        links_pos = result.index("## Links:")
-
-        assert data_pos < subject_pos < provider_pos < participation_pos
-        assert participation_pos < workflow_pos < attestation_pos
-        assert attestation_pos < audit_pos < links_pos
-
-
-class TestRoundTrip:
-    """Build a template then validate it - must pass validation."""
-
-    def test_round_trip_minimal(self, builder, validator):
-        """Build minimal template, validate it."""
-        analysis = FormAnalysis(
-            dataset_name="Round Trip Test",
-            source_language="English",
-            data=ClusterDefinition(
-                name="Root",
-                description="Root cluster",
-                columns=[
-                    ColumnDefinition(
-                        name="Patient Name",
-                        column_type=ColumnType.TEXT,
-                        description="Full legal name",
-                        examples=["John Doe"],
-                    )
-                ],
-            ),
-        )
-        template = builder.build(analysis)
-        result = validator.validate(template)
-        assert result.valid is True, (
-            f"Round-trip validation failed with errors: "
-            f"{[e.message for e in result.errors]}"
-        )
-
-    def test_round_trip_complex(self, builder, validator):
-        """Build complex template with multiple types, validate it."""
-        analysis = FormAnalysis(
-            dataset_name="Complex Test",
-            dataset_description="A comprehensive test",
-            source_language="English",
-            creator="Test Suite",
-            domain="Healthcare",
-            data=ClusterDefinition(
-                name="Patient Record",
-                description="Complete patient information",
-                columns=[
-                    ColumnDefinition(
-                        name="Full Name",
-                        column_type=ColumnType.TEXT,
-                        description="Legal name",
-                        examples=["John Doe"],
-                        constraints=Constraint(
-                            min_length=2, max_length=100
-                        ),
-                    ),
-                    ColumnDefinition(
-                        name="Age",
-                        column_type=ColumnType.INTEGER,
-                        description="Age in years",
-                        units="years",
-                        examples=["25", "60"],
-                        constraints=Constraint(min_value=0, max_value=120),
-                    ),
-                    ColumnDefinition(
-                        name="Is Active",
-                        column_type=ColumnType.BOOLEAN,
-                        description="Whether record is active",
-                    ),
-                    ColumnDefinition(
-                        name="Birth Date",
-                        column_type=ColumnType.DATE,
-                        description="Date of birth",
-                        examples=["1990-01-15"],
-                        constraints=Constraint(
-                            temporal_type="date",
-                            min_date="1900-01-01",
-                            max_date="2025-12-31",
-                        ),
-                    ),
-                ],
-            ),
-        )
-        template = builder.build(analysis)
-        result = validator.validate(template)
-        assert result.valid is True, (
-            f"Round-trip validation failed with errors: "
-            f"{[e.message for e in result.errors]}"
-        )
-
-    def test_round_trip_all_sections(self, builder, validator):
-        """Build template with all 8 SDC4 trees, validate it."""
-        analysis = FormAnalysis(
-            dataset_name="Full SDC4 Test",
-            source_language="English",
-            data=ClusterDefinition(
-                name="Clinical Data",
-                description="Main data section",
-                columns=[
-                    ColumnDefinition(
-                        name="Diagnosis",
-                        column_type=ColumnType.TEXT,
-                        description="Primary diagnosis",
-                        examples=["Hypertension"],
-                    )
-                ],
-            ),
-            subject=PartyDefinition(
-                name="Patient",
-                description="The patient",
-                party_type="subject",
-            ),
-            workflow=ClusterDefinition(
-                name="Status",
-                description="Workflow tracking",
-            ),
-            attestation=AttestationDefinition(
-                name="Signature",
-                view="application/pdf",
-            ),
-            audit=[AuditDefinition(name="System Log", system_id="sys-01")],
-            links=["https://example.com/ontology"],
-        )
-        template = builder.build(analysis)
-        result = validator.validate(template)
-        assert result.valid is True, (
-            f"Round-trip validation failed with errors: "
-            f"{[e.message for e in result.errors]}"
-        )
+        ),
+    )
+    md = TemplateBuilder().build(analysis)
+    result = Form2SDCValidator().validate(md)
+    assert result.valid, (
+        f"Round-trip with complete template failed:\n"
+        + "\n".join(f"  [{e.code}] {e.message}" for e in result.errors)
+    )
