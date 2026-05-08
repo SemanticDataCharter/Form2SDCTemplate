@@ -1,10 +1,10 @@
 # Form2SDCTemplate: LLM Instructions for Creating SDCStudio Templates
 
-**VERSION:** 4.2.0
+**VERSION:** 4.5.0
 **TARGET:** Large Language Models (Claude, ChatGPT, etc.)
 **PURPOSE:** Generate SDCStudio-compliant dataset templates from form descriptions
 
-> **What changed in 4.2.0:** This document now matches the production md2pd parser exactly. The structural element under each named-tree section is `### name` (not `### Column: name`), the primary cluster section is `## Data: <Name>` (not `## Root Cluster:` or `## Cluster:`), and there is exactly one `## Data:` section per template. Column reuse is per-column only — there is no cluster-level reuse. Templates produced under the older syntax will not parse correctly.
+> **What changed in 4.5.0:** This document now matches the production md2pd parser exactly. The structural element under each named-tree section is `### name` (not `### Column: name`), the primary cluster section is `## Data: <Name>` (not `## Root Cluster:` or `## Cluster:`), and there is exactly one `## Data:` section per template. Column reuse is per-column only — there is no cluster-level reuse. Templates produced under the older syntax will not parse correctly.
 
 ---
 

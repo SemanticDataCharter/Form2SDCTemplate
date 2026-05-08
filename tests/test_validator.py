@@ -1,4 +1,4 @@
-"""Tests for ``form2sdc.validator`` (md2pd-aligned, 4.2.0+).
+"""Tests for ``form2sdc.validator`` (md2pd-aligned, 4.5.0+).
 
 Each test exercises one validation rule. Rule codes are stable contracts
 documented in ``VALIDATOR_SPECIFICATION.md``.

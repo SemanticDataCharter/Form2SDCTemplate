@@ -1,6 +1,6 @@
 """Tests for the Pydantic models in ``form2sdc.types``.
 
-The 4.2.0 cleanup slimmed the Constraint model down to only the fields md2pd
+The 4.5.0 cleanup slimmed the Constraint model down to only the fields md2pd
 acts on. These tests pin down the new shape.
 """
 

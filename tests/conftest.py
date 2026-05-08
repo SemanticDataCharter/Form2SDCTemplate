@@ -1,6 +1,6 @@
 """Shared test fixtures for form2sdc tests.
 
-Fixtures match the post-4.2.0 md2pd-aligned model:
+Fixtures match the post-4.5.0 md2pd-aligned model:
 - template_version is 4.x
 - single ## Data: section per template
 - ### name (no `Column:` prefix)
