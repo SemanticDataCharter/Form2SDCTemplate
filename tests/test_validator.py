@@ -622,6 +622,45 @@ dataset:
     assert _has_suggestion(result, "S-QL-003")
 
 
+def test_missing_examples_with_enumeration_does_not_emit_s_col_003() -> None:
+    """An enumerated column already documents its value set; Examples are redundant."""
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### account_status
+**Type**: text
+**Description**: Account status
+**Enumeration**:
+  - active: In good standing
+  - closed: Permanently closed
+"""
+    result = _validate(content)
+    assert not _has_suggestion(result, "S-COL-003")
+
+
+def test_missing_examples_without_enumeration_still_emits_s_col_003() -> None:
+    """Non-enumerated, non-boolean column without Examples still gets the suggestion."""
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### note
+**Type**: text
+**Description**: Free-form note
+"""
+    result = _validate(content)
+    assert _has_suggestion(result, "S-COL-003")
+
+
 def test_missing_column_description_emits_s_col_002() -> None:
     content = """---
 template_version: "4.0.0"

@@ -93,7 +93,7 @@ This spec replaces the pre-4.5 validator specification, which validated against 
 | `S-QL-003` | SUGGESTION | `dataset.description` missing | Add `dataset.description: "..."` |
 | `S-COL-001` | SUGGESTION | Column has no `**Type**:` (md2pd defaults to `text`/XdString) | Add `**Type**:` as the first keyword |
 | `S-COL-002` | SUGGESTION | Column has no `**Description**:` | Add a description |
-| `S-COL-003` | SUGGESTION | Column has no `**Examples**:` (except for boolean columns) | Add 2-3 sample values |
+| `S-COL-003` | SUGGESTION | Column has no `**Examples**:` (skipped for boolean columns and columns with `**Enumeration**:`, where the value set is already documented) | Add 2-3 sample values |
 
 ## What the validator does NOT validate
 
