@@ -1,6 +1,6 @@
 # Form2SDC Validator Specification
 
-**Version:** 4.2.0 — md2pd-aligned rewrite
+**Version:** 4.5.0 — md2pd-aligned rewrite
 **Implements:** `form2sdc.validator.Form2SDCValidator`
 **Source of truth:** the production md2pd parser at `SDCStudio/src/md2pd/agents/template_parser_agent.py`
 
@@ -8,7 +8,7 @@
 
 The validator's contract: **a template that passes this validator will parse cleanly through the SDCStudio md2pd parser without rejection or silent data loss.**
 
-This spec replaces the pre-4.2 validator specification, which validated against a flat-keyword constraint model that md2pd never supported (the old `**Min Length**:`, `**Pattern**:`, `**Min Magnitude**:`, etc. were silently ignored on upload). The 4.2 validator validates against md2pd's actual model.
+This spec replaces the pre-4.5 validator specification, which validated against a flat-keyword constraint model that md2pd never supported (the old `**Min Length**:`, `**Pattern**:`, `**Min Magnitude**:`, etc. were silently ignored on upload). The 4.5 validator validates against md2pd's actual model.
 
 ## Severity levels
 

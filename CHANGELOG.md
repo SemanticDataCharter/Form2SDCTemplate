@@ -18,11 +18,11 @@ aligned with SDC Generation 4.
 
 ---
 
-## [4.2.0] - 2026-05-08 — md2pd-aligned rewrite
+## [4.5.0] - 2026-05-08 — md2pd-aligned rewrite
 
 This release reconciles Form2SDCTemplate end-to-end with the production SDCStudio md2pd parser. Three sources of template-format truth (the LLM instruction document, the Python builder, and the validator) had drifted independently and produced subtly different markdown, none of which md2pd parsed correctly. They now all agree with the parser.
 
-> **Note on the version regression** (4.4.0 → 4.2.0): pre-rewrite versions claimed conformance the package did not actually deliver. The semver reset signals to consumers that the contract has changed and that templates produced by 4.3 / 4.4 will not parse cleanly under md2pd.
+> **Compatibility note:** templates produced by 4.3 / 4.4 will not parse cleanly under md2pd. The contract has changed; see the migration guide at the bottom of this entry.
 
 ### Changed (BREAKING)
 
