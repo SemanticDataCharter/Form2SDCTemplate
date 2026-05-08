@@ -1,4 +1,10 @@
-"""Tests for form2sdc.types Pydantic models."""
+"""Tests for the Pydantic models in ``form2sdc.types``.
+
+The 4.2.0 cleanup slimmed the Constraint model down to only the fields md2pd
+acts on. These tests pin down the new shape.
+"""
+
+from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
@@ -6,300 +12,148 @@ from pydantic import ValidationError
 from form2sdc.types import (
     AttestationDefinition,
     AuditDefinition,
+    ClusterDefinition,
     ColumnDefinition,
     ColumnType,
-    ClusterDefinition,
     Constraint,
     EnumerationItem,
     FormAnalysis,
     PartyDefinition,
     resolve_sdc4_type,
-    FRIENDLY_TO_SDC4,
 )
 
 
-class TestColumnType:
-    """Test ColumnType enum."""
-
-    def test_user_friendly_types(self):
-        assert ColumnType.TEXT == "text"
-        assert ColumnType.INTEGER == "integer"
-        assert ColumnType.DECIMAL == "decimal"
-        assert ColumnType.BOOLEAN == "boolean"
-        assert ColumnType.DATE == "date"
-        assert ColumnType.DATETIME == "datetime"
-        assert ColumnType.TIME == "time"
-        assert ColumnType.IDENTIFIER == "identifier"
-        assert ColumnType.EMAIL == "email"
-        assert ColumnType.URL == "url"
-
-    def test_sdc4_explicit_types(self):
-        assert ColumnType.XDSTRING == "XdString"
-        assert ColumnType.XDCOUNT == "XdCount"
-        assert ColumnType.XDQUANTITY == "XdQuantity"
-        assert ColumnType.CLUSTER == "Cluster"
-
-    def test_from_string(self):
-        assert ColumnType("text") == ColumnType.TEXT
-        assert ColumnType("XdString") == ColumnType.XDSTRING
+# ── resolve_sdc4_type ───────────────────────────────────────────────
 
 
-class TestResolveSdc4Type:
-    """Test type resolution from friendly to SDC4."""
-
-    def test_friendly_mappings(self):
-        assert resolve_sdc4_type("text") == "XdString"
-        assert resolve_sdc4_type("integer") == "XdCount"
-        assert resolve_sdc4_type("decimal") == "XdQuantity"
-        assert resolve_sdc4_type("boolean") == "XdBoolean"
-        assert resolve_sdc4_type("date") == "XdTemporal"
-        assert resolve_sdc4_type("url") == "XdLink"
-
-    def test_explicit_types_pass_through(self):
-        assert resolve_sdc4_type("XdString") == "XdString"
-        assert resolve_sdc4_type("Cluster") == "Cluster"
-        assert resolve_sdc4_type("XdOrdinal") == "XdOrdinal"
+def test_resolve_user_friendly_text_to_xdstring() -> None:
+    assert resolve_sdc4_type("text") == "XdString"
 
 
-class TestConstraint:
-    """Test Constraint model."""
-
-    def test_empty_constraint(self):
-        c = Constraint()
-        assert c.required is None
-        assert c.min_value is None
-
-    def test_full_constraint(self):
-        c = Constraint(
-            required=True,
-            unique=True,
-            min_value=0,
-            max_value=100,
-            precision=5,
-            fraction_digits=2,
-            pattern=r"^\d+$",
-        )
-        assert c.required is True
-        assert c.max_value == 100
-        assert c.precision == 5
+def test_resolve_user_friendly_integer_to_xdcount() -> None:
+    assert resolve_sdc4_type("integer") == "XdCount"
 
 
-class TestEnumerationItem:
-    """Test EnumerationItem model."""
-
-    def test_value_only(self):
-        item = EnumerationItem(value="active")
-        assert item.value == "active"
-        assert item.label is None
-
-    def test_with_description(self):
-        item = EnumerationItem(
-            value="1", label="Active", description="Account in good standing"
-        )
-        assert item.label == "Active"
+def test_resolve_user_friendly_decimal_to_xdquantity() -> None:
+    assert resolve_sdc4_type("decimal") == "XdQuantity"
 
 
-class TestColumnDefinition:
-    """Test ColumnDefinition model."""
-
-    def test_minimal_column(self):
-        col = ColumnDefinition(name="age", column_type=ColumnType.INTEGER)
-        assert col.name == "age"
-        assert col.column_type == ColumnType.INTEGER
-        assert col.description == ""
-
-    def test_full_column(self):
-        col = ColumnDefinition(
-            name="weight",
-            column_type=ColumnType.DECIMAL,
-            description="Patient body weight",
-            examples=["72.5", "85.0"],
-            units="kg",
-            constraints=Constraint(min_value=0, max_value=500),
-        )
-        assert col.units == "kg"
-        assert len(col.examples) == 2
-
-    def test_column_with_enumeration(self):
-        col = ColumnDefinition(
-            name="status",
-            column_type=ColumnType.TEXT,
-            enumeration=[
-                EnumerationItem(value="active", description="Active account"),
-                EnumerationItem(value="inactive", description="Closed"),
-            ],
-        )
-        assert len(col.enumeration) == 2
-
-    def test_missing_required_field(self):
-        with pytest.raises(ValidationError):
-            ColumnDefinition(column_type=ColumnType.TEXT)  # missing name
+def test_resolve_user_friendly_date_to_xdtemporal() -> None:
+    assert resolve_sdc4_type("date") == "XdTemporal"
 
 
-class TestClusterDefinition:
-    """Test ClusterDefinition model."""
-
-    def test_minimal_cluster(self):
-        cluster = ClusterDefinition(name="Root")
-        assert cluster.name == "Root"
-        assert cluster.columns == []
-
-    def test_cluster_with_columns(self):
-        cluster = ClusterDefinition(
-            name="Patient Record",
-            description="All patient data",
-            columns=[
-                ColumnDefinition(
-                    name="name", column_type=ColumnType.TEXT
-                )
-            ],
-        )
-        assert len(cluster.columns) == 1
-
-    def test_no_sub_clusters_field(self):
-        """ClusterDefinition should not have sub_clusters or parent."""
-        cluster = ClusterDefinition(name="Root")
-        assert not hasattr(cluster, "sub_clusters")
-        assert not hasattr(cluster, "parent")
+def test_resolve_explicit_sdc4_type_passthrough() -> None:
+    assert resolve_sdc4_type("XdOrdinal") == "XdOrdinal"
 
 
-class TestPartyDefinition:
-    """Test PartyDefinition model."""
-
-    def test_subject(self):
-        party = PartyDefinition(
-            name="Patient",
-            description="The patient being recorded",
-            party_type="subject",
-        )
-        assert party.party_type == "subject"
-
-    def test_participation_with_function(self):
-        party = PartyDefinition(
-            name="Attending Physician",
-            description="Doctor overseeing care",
-            party_type="participation",
-            function="Physician",
-            function_description="Medical doctor providing care",
-            mode="In-Person",
-            mode_description="Physical presence",
-        )
-        assert party.function == "Physician"
-        assert party.mode == "In-Person"
+# ── Constraint model ─────────────────────────────────────────────────
 
 
-class TestAttestationDefinition:
-    """Test AttestationDefinition model."""
-
-    def test_minimal(self):
-        att = AttestationDefinition(name="Signature")
-        assert att.name == "Signature"
-        assert att.view is None
-        assert att.proof is None
-        assert att.reason is None
-
-    def test_full(self):
-        att = AttestationDefinition(
-            name="Clinical Attestation",
-            view="application/pdf",
-            proof="application/pkcs7-signature",
-            reason="Treatment authorization",
-            committer="Dr. Smith",
-        )
-        assert att.view == "application/pdf"
-        assert att.proof == "application/pkcs7-signature"
-        assert att.reason == "Treatment authorization"
-        assert att.committer == "Dr. Smith"
+def test_constraint_accepts_required() -> None:
+    c = Constraint(required=True)
+    assert c.required is True
 
 
-class TestAuditDefinition:
-    """Test AuditDefinition model."""
-
-    def test_minimal(self):
-        audit = AuditDefinition(name="System Audit")
-        assert audit.name == "System Audit"
-        assert audit.system_id is None
-
-    def test_full(self):
-        audit = AuditDefinition(
-            name="EHR Audit",
-            system_id="ehr-prod-01",
-            system_user="nurse.jones",
-            location="Ward 3B",
-        )
-        assert audit.system_id == "ehr-prod-01"
-        assert audit.system_user == "nurse.jones"
-        assert audit.location == "Ward 3B"
+def test_constraint_accepts_min_max_value() -> None:
+    c = Constraint(min_value=0, max_value=100)
+    assert c.min_value == 0
+    assert c.max_value == 100
 
 
-class TestFormAnalysis:
-    """Test FormAnalysis model."""
+def test_constraint_accepts_precision() -> None:
+    c = Constraint(precision=2)
+    assert c.precision == 2
 
-    def test_minimal_analysis(self):
-        analysis = FormAnalysis(
-            dataset_name="Test",
-            data=ClusterDefinition(name="Root"),
-        )
-        assert analysis.dataset_name == "Test"
-        assert analysis.source_language == "English"
-        assert analysis.data.name == "Root"
 
-    def test_full_analysis(self):
-        analysis = FormAnalysis(
-            dataset_name="Patient Demographics",
-            dataset_description="Patient demographic information",
-            domain="Healthcare",
-            creator="Clinical Team",
-            source_language="English",
-            purpose="Record patient demographics",
-            data=ClusterDefinition(
-                name="Patient Record",
-                description="Data cluster",
-                columns=[
-                    ColumnDefinition(
-                        name="Full Name",
-                        column_type=ColumnType.TEXT,
-                        description="Patient legal name",
-                    )
-                ],
-            ),
-            subject=PartyDefinition(
-                name="Patient",
-                description="The patient",
-                party_type="subject",
-            ),
-        )
-        assert analysis.domain == "Healthcare"
-        assert analysis.subject.name == "Patient"
-        assert len(analysis.data.columns) == 1
+# ── EnumerationItem / ColumnDefinition ───────────────────────────────
 
-    def test_all_8_trees(self):
-        """FormAnalysis supports all 8 SDC4 named trees."""
-        analysis = FormAnalysis(
-            dataset_name="Full SDC4",
-            data=ClusterDefinition(name="Data"),
-            subject=PartyDefinition(
-                name="Patient", party_type="subject"
-            ),
-            provider=PartyDefinition(
-                name="Hospital", party_type="provider"
-            ),
-            participations=[
-                PartyDefinition(
-                    name="Physician", party_type="participation"
-                )
-            ],
-            workflow=ClusterDefinition(name="Status Tracking"),
-            attestation=AttestationDefinition(name="Signature"),
-            audit=[AuditDefinition(name="System Log")],
-            links=["https://example.com/ontology"],
-        )
-        assert analysis.workflow.name == "Status Tracking"
-        assert analysis.attestation.name == "Signature"
-        assert len(analysis.audit) == 1
-        assert analysis.links == ["https://example.com/ontology"]
 
-    def test_data_field_required(self):
-        """data field is required (was root_cluster)."""
-        with pytest.raises(ValidationError):
-            FormAnalysis(dataset_name="Test")
+def test_enumeration_item_minimal() -> None:
+    item = EnumerationItem(value="active")
+    assert item.value == "active"
+    assert item.label is None
+
+
+def test_column_definition_minimal() -> None:
+    col = ColumnDefinition(
+        name="age",
+        column_type=ColumnType.INTEGER,
+        description="Age in years",
+    )
+    assert col.name == "age"
+    assert col.column_type == ColumnType.INTEGER
+
+
+def test_column_definition_with_reuse_component() -> None:
+    col = ColumnDefinition(
+        name="state",
+        column_type=ColumnType.TEXT,
+        description="US state code",
+        reuse_component="@NIEM:StateUSPostalServiceCode",
+    )
+    assert col.reuse_component == "@NIEM:StateUSPostalServiceCode"
+
+
+# ── ClusterDefinition ───────────────────────────────────────────────
+
+
+def test_cluster_definition_with_rules() -> None:
+    cluster = ClusterDefinition(
+        name="Patient Record",
+        description="Patient data",
+        rules=["start_date must be before end_date"],
+    )
+    assert cluster.rules == ["start_date must be before end_date"]
+
+
+# ── PartyDefinition / AttestationDefinition / AuditDefinition ────────
+
+
+def test_party_definition_subject() -> None:
+    party = PartyDefinition(
+        name="Patient",
+        description="The patient",
+        party_type="subject",
+    )
+    assert party.party_type == "subject"
+
+
+def test_attestation_definition_minimal() -> None:
+    att = AttestationDefinition(
+        name="Encounter Sign-off",
+        view="Clinical Summary",
+        proof="Clinician Signature",
+        reason="Attestation Reason",
+    )
+    assert att.view == "Clinical Summary"
+
+
+def test_audit_definition_minimal() -> None:
+    audit = AuditDefinition(name="Provenance")
+    assert audit.name == "Provenance"
+
+
+# ── FormAnalysis ────────────────────────────────────────────────────
+
+
+def _minimal_data() -> ClusterDefinition:
+    return ClusterDefinition(
+        name="Root",
+        description="Root cluster",
+        columns=[
+            ColumnDefinition(
+                name="x",
+                column_type=ColumnType.TEXT,
+                description="A field",
+            )
+        ],
+    )
+
+
+def test_form_analysis_minimal() -> None:
+    analysis = FormAnalysis(
+        dataset_name="Test",
+        data=_minimal_data(),
+    )
+    assert analysis.dataset_name == "Test"
+    assert analysis.enable_llm is True

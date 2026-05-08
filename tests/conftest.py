@@ -1,117 +1,120 @@
-"""Shared test fixtures for form2sdc tests."""
+"""Shared test fixtures for form2sdc tests.
+
+Fixtures match the post-4.2.0 md2pd-aligned model:
+- template_version is 4.x
+- single ## Data: section per template
+- ### name (no `Column:` prefix)
+- bullet-list **Constraints** with only required/range/precision sub-keys
+- no flat-keyword constraints (Pattern, Min Length, Min Magnitude, etc.)
+"""
 
 import pytest
 
 
 @pytest.fixture
-def valid_front_matter():
-    """Minimal valid YAML front matter block."""
-    return 'template_version: "1.0.0"\ndataset:\n  name: "Test"\nsource_language: "English"'
-
-
-@pytest.fixture
-def valid_minimal_template():
-    """Minimal valid template with Data section and one component."""
+def valid_minimal_template() -> str:
+    """Smallest template that md2pd will parse: front matter + Data section + one column."""
     return """---
-template_version: "1.0.0"
+template_version: "4.0.0"
 dataset:
   name: "Minimal"
-source_language: "English"
 ---
 
 ## Data: Root
 
-**Type**: Cluster
-**Description**: Root cluster
+Minimal template with a single column.
 
-### Name
-
-**Type**: XdString
+### name
+**Type**: text
 **Description**: Person's name
+**Examples**: Jane, John
 """
 
 
 @pytest.fixture
-def valid_complete_template():
-    """Complete template with all types from spec Test 2."""
+def valid_complete_template() -> str:
+    """Comprehensive template covering type system, constraints, enum, and reuse."""
     return """---
-template_version: "1.0.0"
+template_version: "4.0.0"
 dataset:
   name: "Complete Example"
-  description: "Comprehensive test template"
+  description: "Comprehensive md2pd-compliant test template"
   creator: "Test Suite"
-source_language: "English"
+enrichment:
+  enable_llm: true
 ---
+
+# Dataset Overview
+
+Comprehensive patient record template exercising the full md2pd surface area.
+
+**Purpose**: Validate type inference, constraints, enumeration, and component reuse.
+**Business Context**: Used in the Form2SDC validator regression suite.
 
 ## Data: Patient Record
 
-**Type**: Cluster
-**Description**: Complete patient information
-**Cardinality**: 1..1
+Complete patient information collected at registration.
 
-### Patient Name
+**Purpose**: Single source of truth for patient identity and vitals.
+**Business Context**: Required for billing and clinical workflows.
 
-**Type**: XdString
-**Description**: Full legal name
-**Pattern**: ^[A-Za-z\\s'-]+$
-**Min Length**: 2
-**Max Length**: 100
+### patient_name
+**Type**: text
+**Description**: Full legal name.
+**Constraints**:
+  - required: true
 **Examples**: John Doe, Mary O'Brien
 
-### Age
-
-**Type**: XdCount
-**Description**: Age in years
+### age
+**Type**: integer
+**Description**: Age in completed years.
 **Units**: years
-**Min Magnitude**: 0
-**Max Magnitude**: 120
+**Constraints**:
+  - required: true
+  - range: [0, 120]
+**Examples**: 25, 42, 67
 
-### Weight
+### weight
+**Type**: decimal
+**Description**: Body weight.
+**Units**: kg
+**Constraints**:
+  - precision: 1
+  - range: [0, 500]
+**Examples**: 65.5, 72.0
 
-**Type**: XdQuantity
-**Description**: Body weight
-**Units**: kg, lb
-**Min Magnitude**: 0.0
-**Max Magnitude**: 500.0
-**Precision**: 5
-**Fraction Digits**: 1
+### birth_date
+**Type**: date
+**Description**: Date of birth.
+**Constraints**:
+  - required: true
+**Examples**: 1985-03-15, 1970-12-01
 
-### Temperature
+### consent_given
+**Type**: boolean
+**Description**: Patient consent for treatment.
+**Examples**: true, false
 
-**Type**: XdFloat
-**Description**: Body temperature
-**Units**: °C, °F
-**Min Magnitude**: 35.0
-**Max Magnitude**: 42.0
-
-### Birth Date
-
-**Type**: XdTemporal
-**Description**: Date of birth
-**Temporal Type**: date
-**Min Date**: 1900-01-01
-**Max Date**: 2025-12-31
-
-### Consent Given
-
-**Type**: XdBoolean
-**Description**: Patient consent for treatment
-**Default Value**: false
-
-### Pain Level
-
-**Type**: XdOrdinal
-**Description**: Self-reported pain intensity
+### pain_level
+**Type**: xdordinal
+**Description**: Self-reported pain intensity.
 **Enumeration**:
-1. None
-2. Mild
-3. Moderate
-4. Severe
+  - 0: None
+  - 1: Mild
+  - 2: Moderate
+  - 3: Severe
 
-### Medical Report
+### account_status
+**Type**: text
+**Description**: Patient account status.
+**Enumeration**:
+  - active: Account in good standing
+  - suspended: Temporarily suspended
+  - closed: Permanently closed
 
-**Type**: XdFile
-**Description**: Diagnostic report file
-**Media Types**: application/pdf, image/jpeg
-**Max Size**: 10MB
+### state
+**Type**: text
+**ReuseComponent**: @NIEM:StateUSPostalServiceCode
+**Description**: US state postal abbreviation
+**Examples**: CA, NY, TX
 """

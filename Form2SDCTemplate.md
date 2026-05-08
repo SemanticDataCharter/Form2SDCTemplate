@@ -1,8 +1,10 @@
 # Form2SDCTemplate: LLM Instructions for Creating SDCStudio Templates
 
-**VERSION:** 4.1.0
+**VERSION:** 4.2.0
 **TARGET:** Large Language Models (Claude, ChatGPT, etc.)
 **PURPOSE:** Generate SDCStudio-compliant dataset templates from form descriptions
+
+> **What changed in 4.2.0:** This document now matches the production md2pd parser exactly. The structural element under each named-tree section is `### name` (not `### Column: name`), the primary cluster section is `## Data: <Name>` (not `## Root Cluster:` or `## Cluster:`), and there is exactly one `## Data:` section per template. Column reuse is per-column only — there is no cluster-level reuse. Templates produced under the older syntax will not parse correctly.
 
 ---
 
@@ -15,7 +17,7 @@ You are tasked with creating an SDCStudio template from a form description provi
 **KEYWORDS MUST BE IN ENGLISH:**
 - All markdown keyword labels MUST be in English (e.g., `**Type**:`, `**Description**:`, `**Enumeration**:`)
 - All SDC4 data types MUST be in English (e.g., `text`, `integer`, `date`)
-- All template structure keywords MUST be in English (e.g., `Column:`, `Root Cluster:`)
+- All section headings MUST be in English (`## Data:`, `## Subject:`, `## Provider:`, `## Participation:`, `## Workflow:`, `## Attestation:`, `## Audit:`, `## Links:`)
 
 **CONTENT SHOULD MATCH SOURCE LANGUAGE:**
 - Column names should be in the same language as the source form/PDF
@@ -27,7 +29,7 @@ You are tasked with creating an SDCStudio template from a form description provi
 **Example:**
 If analyzing a French form:
 ```markdown
-### Column: nom_complet
+### nom_complet
 **Type**: text
 **Description**: Nom complet du patient (prénom et nom de famille)
 **Constraints**:
@@ -43,14 +45,17 @@ Every template MUST follow this structure:
 
 ```
 1. YAML Front Matter (metadata)
-2. Dataset Overview (purpose and context)
-3. Subject Section (optional — who the record is about)
-4. Provider Section (optional — who provided the data)
-5. Participation Sections (optional — other involved parties)
-6. Root Cluster (primary data grouping)
-7. Column Definitions (individual fields)
-8. Additional Clusters (optional logical groupings)
+2. # Dataset Overview (H1, optional — purpose and context)
+3. ## Subject: <Name> (optional — who the record is about; max 1)
+4. ## Provider: <Name> (optional — who provided the data; max 1)
+5. ## Participation: <Name> (optional — other involved parties; multiple allowed)
+6. ## Data: <Name> (REQUIRED — exactly one per template; contains all columns)
+7. ## Attestation: <Name> (optional; max 1)
+8. ## Audit: <Name> (optional; multiple allowed)
+9. ## Links: (optional; max 1)
 ```
+
+**One `## Data:` section per template.** All form payload fields go under the single `## Data:` section as a flat list of `### column_name` entries. The parser keeps only the last `## Data:` section, so do not split the form payload across multiple Data sections. Use `## Subject:` / `## Provider:` / `## Participation:` for actor/party fields; everything else goes under `## Data:`.
 
 ---
 
@@ -112,13 +117,13 @@ After the YAML front matter, provide a dataset overview:
 
 ## PART 3: Subject, Provider, and Participation Sections (Optional)
 
-The SDC4 reference model supports three structural participation slots on every Data Model (DM). These sections define **who** is involved with the data, separate from **what** the data contains (which goes in the Root Cluster).
+The SDC4 reference model supports three structural participation slots on every Data Model (DM). These sections define **who** is involved with the data, separate from **what** the data contains (which goes in the `## Data:` section).
 
 - **Subject** — The party the record is about (patient, citizen, vessel, taxpayer)
 - **Provider** — The party that provided or maintains the data (hospital, registry office, port authority)
 - **Participation** — Other involved parties (attending physician, registrar, lab technician)
 
-**All three are optional.** Templates without them work exactly as before — all data goes into the Root Cluster. Use them when the form clearly identifies actors/participants beyond the data payload.
+**All three are optional.** Templates without them place all fields in the single `## Data:` section. Use them when the form clearly identifies actors/participants beyond the data payload.
 
 ### Subject Section
 
@@ -128,7 +133,7 @@ Defines who the record is about. Only **one** `## Subject:` per template.
 ## Subject: [Party Name]
 **Description**: [Who this party is and their role]
 
-### Column: column_name
+### column_name
 **Type**: [type]
 **Description**: [description]
 **Examples**: [examples]
@@ -144,7 +149,7 @@ Defines who provided or maintains the data. Only **one** `## Provider:` per temp
 ## Provider: [Provider Name]
 **Description**: [Who this provider is]
 
-### Column: column_name
+### column_name
 **Type**: [type]
 **Description**: [description]
 **Examples**: [examples]
@@ -162,7 +167,7 @@ Defines other involved parties. **Multiple** `## Participation:` sections are al
 **Mode**: [Interaction mode label]
 **Mode Description**: [What this mode means]
 
-### Column: column_name
+### column_name
 **Type**: [type]
 **Description**: [description]
 **Examples**: [examples]
@@ -183,8 +188,8 @@ Defines other involved parties. **Multiple** `## Participation:` sections are al
 1. **All three sections are optional** — existing templates without them work unchanged
 2. **Only one `## Subject:` and one `## Provider:`** per template
 3. **Multiple `## Participation:` sections allowed** (one per participant role)
-4. **Columns are isolated** — columns under Subject/Provider/Participation do NOT appear in the data cluster
-5. **Same column syntax** — `### Column:` entries use the same keywords as data cluster columns (`**Type**:`, `**Description**:`, `**ReuseComponent**:`, etc.)
+4. **Columns are isolated** — columns under Subject/Provider/Participation do NOT appear in the Data section
+5. **Same column syntax** — `### name` entries use the same keywords as Data section columns (`**Type**:`, `**Description**:`, `**ReuseComponent**:`, etc.)
 6. **`**ReuseComponent**:` works** in party columns for cross-project component reuse
 
 ### When to Use These Sections
@@ -195,30 +200,35 @@ Defines other involved parties. **Multiple** `## Participation:` sections are al
 - The form identifies other participants (registrar, attending physician, inspector)
 - Demographic data (names, IDs, birth dates) should be modeled separately from the data payload
 
-**Keep everything in Root Cluster when:**
+**Keep everything in the `## Data:` section when:**
 - The form is purely data-focused (sensor readings, financial transactions)
 - There's no clear "who" beyond the data itself
 - The form is simple and flat
 
 ---
 
-## PART 4: Root Cluster Section
+## PART 4: Data Section
 
-Define the primary data cluster:
+Every template has exactly one `## Data:` section. This is where the form payload lives — all field-level columns belong here as a flat `### name` list. Use Subject/Provider/Participation (PART 3) for party-specific fields and keep the Data section focused on the form payload.
 
 ```markdown
-## Root Cluster: [Cluster Name]
+## Data: [Section Name]
 
-[Description of what this cluster represents]
+[First paragraph of prose: description of what this section represents — md2pd uses this paragraph as the cluster description.]
 
-**Purpose**: [What this cluster contains and represents]
-**Business Context**: [How this cluster is used in the business]
+**Purpose**: [What the form payload contains — optional]
+**Business Context**: [How the data is used — optional]
+**Rules**:                              # Optional, bulleted list of cross-field validation rules
+  - end_date must be after start_date
+  - At least one of email or phone must be provided
 ```
 
-**Cluster Naming:**
-- Use descriptive names that reflect the data grouping
+**Section Naming:**
+- Use descriptive names that reflect the form's overall payload
 - Examples: "Patient Demographics", "Order Information", "Incident Report"
-- Use the source language for cluster names if the form is not in English
+- Use the source language for the section name if the form is not in English
+
+**Do NOT use** `## Cluster:` or `## Root Cluster:` — these are not recognized by md2pd. Use `## Data:` only.
 
 ---
 
@@ -229,7 +239,7 @@ This is the core of the template. For each field in the form, create a column de
 ### Basic Column Structure
 
 ```markdown
-### Column: column_name
+### column_name
 **Type**: [type]
 **Description**: [Detailed description of the field]
 **Constraints**:           # Optional but recommended
@@ -459,15 +469,13 @@ For fields with a fixed set of allowed values, use enumeration.
 
 ## PART 8: Constraints Syntax
 
-Define validation rules using a bullet list:
+Define validation rules using a bullet list. The md2pd parser recognizes only three constraint sub-keys; any others are silently dropped, so do not emit them.
 
 ```markdown
 **Constraints**:
-  - required: true|false
-  - range: [min, max]           # For numeric types
-  - precision: N                # For decimal types (number of decimal places)
-  - format: "description"       # For string types
-  - unique: true                # If values must be unique
+  - required: true|false       # Sets column nullability
+  - range: [min, max]          # Numeric range; use null for an unbounded end
+  - precision: N               # Decimal precision; affects type inference (precision=2 → XdQuantity, ≥10 → XdDouble)
 ```
 
 **Examples:**
@@ -487,20 +495,20 @@ Currency constraint:
   - range: [0, 999999.99]
 ```
 
-Email constraint:
+Lower-bound only (unbounded above):
 ```markdown
 **Constraints**:
   - required: true
-  - format: "valid email address"
+  - range: [0, null]
 ```
 
-Identifier constraint:
+**Required-only:**
 ```markdown
 **Constraints**:
   - required: true
-  - unique: true
-  - format: "UUID v4"
 ```
+
+**Note: format strings, regex patterns, length limits, uniqueness checks, default values, and similar hints are not parsed.** Express such intent in `**Description**:` or `**Business Rules**:` as free text. Do not invent flat-keyword forms like `**Min Length**:`, `**Pattern**:`, or `**Default Value**:` — those are not in the parser's keyword allowlist.
 
 ---
 
@@ -525,7 +533,7 @@ Reuse existing components from standard libraries or other projects instead of r
 ### Component Reuse Syntax
 
 ```markdown
-### Column: state_code
+### state_code
 **ReuseComponent**: @ProjectName:ComponentLabel
 **Description**: [Description in source language]
 ```
@@ -538,38 +546,21 @@ Reuse existing components from standard libraries or other projects instead of r
 
 NIEM state code:
 ```markdown
-### Column: state
+### state
 **ReuseComponent**: @NIEM:StateUSPostalServiceCode
 **Description**: US state postal abbreviation
 **Examples**: CA, NY, TX
 ```
 
-FHIR patient demographics:
-```markdown
-## Cluster: Patient Information
-**ReuseComponent**: @FHIR:Patient
-**Description**: Standard patient demographics
-```
-
 Custom organizational component:
 ```markdown
-### Column: department_code
+### department_code
 **ReuseComponent**: @OrgStandards:DepartmentCode
 **Description**: Internal department identifier
 **Examples**: HR, IT, FIN
 ```
 
-### Cluster-Level Reuse
-
-You can also reuse entire clusters:
-
-```markdown
-## Cluster: Mailing Address
-**ReuseComponent**: @NIEM:USAddress
-**Description**: Standard US postal address
-```
-
-This inherits all columns from the NIEM USAddress cluster (street, city, state, zip, etc.)
+**Note: component reuse is per-column only.** Reuse a single component at the column level using `### col_name` + `**ReuseComponent**: @Project:Label`. There is no section-level or cluster-level `**ReuseComponent**:` — each field that should reuse a published component must be declared as its own column.
 
 ---
 
@@ -600,14 +591,14 @@ Patient registration data collected at intake for all clinical encounters.
 - Secondary use: Demographic reporting and compliance
 - Stakeholders: Registration staff, Clinical staff, Billing department
 
-## Root Cluster: Patient Demographics
+## Data: Patient Demographics
 
 Patient identification and demographic information.
 
 **Purpose**: Unique patient identification and essential demographics
 **Business Context**: Required for all clinical encounters and billing
 
-### Column: patient_id
+### patient_id
 **Type**: identifier
 **Description**: Unique patient identifier assigned at registration
 **Constraints**:
@@ -615,21 +606,21 @@ Patient identification and demographic information.
   - unique: true
 **Examples**: PAT-12345, PAT-98765
 
-### Column: first_name
+### first_name
 **Type**: text
 **Description**: Patient's legal first name
 **Constraints**:
   - required: true
 **Examples**: John, Mary, Wei
 
-### Column: last_name
+### last_name
 **Type**: text
 **Description**: Patient's legal last name
 **Constraints**:
   - required: true
 **Examples**: Smith, Johnson, Chen
 
-### Column: date_of_birth
+### date_of_birth
 **Type**: date
 **Description**: Patient's date of birth
 **Constraints**:
@@ -638,7 +629,7 @@ Patient identification and demographic information.
 **Business Rules**: Used to calculate age; must be past date
 **Examples**: 1985-03-15, 1970-12-01
 
-### Column: gender
+### gender
 **Type**: text
 **Description**: Patient's gender identity
 **Enumeration**:
@@ -648,39 +639,35 @@ Patient identification and demographic information.
   - unknown: Unknown or not disclosed
 **Examples**: male, female
 
-### Column: email
+### email
 **Type**: email
 **Description**: Primary contact email address
 **Constraints**:
   - format: "valid email"
 **Examples**: john.smith@example.com, patient@email.org
 
-### Column: phone
+### phone
 **Type**: text
 **Description**: Primary contact phone number
 **Constraints**:
   - format: "valid phone number with area code"
 **Examples**: (555) 123-4567, 555-987-6543
 
-## Cluster: Insurance Information
+<!-- Sub-group: Insurance Information — health insurance coverage details, used for billing. -->
 
-Health insurance coverage details.
-
-**Purpose**: Track patient insurance for billing purposes
-
-### Column: insurance_provider
+### insurance_provider
 **Type**: text
 **Description**: Name of insurance company
 **Examples**: Blue Cross Blue Shield, Aetna, UnitedHealthcare
 
-### Column: policy_number
+### policy_number
 **Type**: identifier
 **Description**: Insurance policy or member ID number
 **Constraints**:
   - required: true
 **Examples**: ABC12345678, XYZ-987-654-321
 
-### Column: group_number
+### group_number
 **Type**: identifier
 **Description**: Insurance group number from employer
 **Examples**: GRP-1234, 999-88-777
@@ -711,14 +698,14 @@ Formulaire de demande de permis de construire pour tous travaux de construction 
 - Secondary use: Archivage et statistiques
 - Stakeholders: Service d'urbanisme, Commission d'urbanisme, Demandeurs
 
-## Root Cluster: Informations Demandeur
+## Data: Informations Demandeur
 
 Informations sur le demandeur du permis.
 
 **Purpose**: Identification et coordonnées du demandeur
 **Business Context**: Requis pour toute correspondance officielle
 
-### Column: numero_dossier
+### numero_dossier
 **Type**: identifier
 **Description**: Numéro unique de dossier attribué à la demande
 **Constraints**:
@@ -726,26 +713,26 @@ Informations sur le demandeur du permis.
   - unique: true
 **Examples**: PC-2024-001, PC-2024-002
 
-### Column: nom
+### nom
 **Type**: text
 **Description**: Nom de famille du demandeur (ou raison sociale si entreprise)
 **Constraints**:
   - required: true
 **Examples**: Dupont, Martin, SARL Construction
 
-### Column: prenom
+### prenom
 **Type**: text
 **Description**: Prénom du demandeur (si personne physique)
 **Examples**: Jean, Marie, Pierre
 
-### Column: adresse
+### adresse
 **Type**: text
 **Description**: Adresse postale complète du demandeur
 **Constraints**:
   - required: true
 **Examples**: 15 rue de la République, 45 Avenue des Champs
 
-### Column: code_postal
+### code_postal
 **Type**: text
 **Description**: Code postal
 **Constraints**:
@@ -753,48 +740,44 @@ Informations sur le demandeur du permis.
   - format: "5 chiffres"
 **Examples**: 75001, 69002, 13001
 
-### Column: ville
+### ville
 **Type**: text
 **Description**: Ville de résidence
 **Constraints**:
   - required: true
 **Examples**: Paris, Lyon, Marseille
 
-### Column: telephone
+### telephone
 **Type**: text
 **Description**: Numéro de téléphone de contact
 **Constraints**:
   - format: "10 chiffres"
 **Examples**: 0601020304, 0412345678
 
-### Column: email
+### email
 **Type**: email
 **Description**: Adresse email de contact
 **Constraints**:
   - format: "email valide"
 **Examples**: jean.dupont@exemple.fr, contact@entreprise.fr
 
-## Cluster: Informations Terrain
+<!-- Sub-group: Informations Terrain — localisation et caractéristiques du terrain concerné par la demande. -->
 
-Informations sur le terrain concerné par la demande.
-
-**Purpose**: Localisation et caractéristiques du terrain
-
-### Column: adresse_terrain
+### adresse_terrain
 **Type**: text
 **Description**: Adresse du terrain où seront réalisés les travaux
 **Constraints**:
   - required: true
 **Examples**: 28 rue du Château, Parcelle ZA 123
 
-### Column: reference_cadastrale
+### reference_cadastrale
 **Type**: identifier
 **Description**: Référence cadastrale de la parcelle
 **Constraints**:
   - required: true
 **Examples**: AB 123, ZC 456
 
-### Column: surface_terrain
+### surface_terrain
 **Type**: decimal
 **Description**: Surface totale du terrain
 **Units**: m²
@@ -803,7 +786,7 @@ Informations sur le terrain concerné par la demande.
   - range: [0, null]
 **Examples**: 500.00, 1200.50, 2500.00
 
-### Column: zone_urbanisme
+### zone_urbanisme
 **Type**: text
 **Description**: Zone du Plan Local d'Urbanisme (PLU)
 **Enumeration**:
@@ -815,7 +798,7 @@ Informations sur le terrain concerné par la demande.
   - N: Zone naturelle
 **Examples**: UA, UB, N
 
-### Column: surface_construction
+### surface_construction
 **Type**: decimal
 **Description**: Surface de plancher de la construction projetée
 **Units**: m²
@@ -825,7 +808,7 @@ Informations sur le terrain concerné par la demande.
 **Business Rules**: Doit respecter le coefficient d'occupation des sols (COS) de la zone
 **Examples**: 150.00, 200.50, 350.00
 
-### Column: hauteur_construction
+### hauteur_construction
 **Type**: decimal
 **Description**: Hauteur totale de la construction projetée
 **Units**: mètres
@@ -861,14 +844,14 @@ Dados cadastrais de pacientes para atendimento no SUS, incluindo informações d
 - Secondary use: Estatísticas epidemiológicas e planejamento de saúde pública
 - Stakeholders: Profissionais de saúde, Gestores de UBS, Secretaria de Saúde
 
-## Root Cluster: Dados Pessoais
+## Data: Dados Pessoais
 
 Informações de identificação e dados demográficos do paciente.
 
 **Purpose**: Identificação única e dados básicos do paciente
 **Business Context**: Obrigatório para todos os atendimentos no SUS
 
-### Column: numero_cartao_sus
+### numero_cartao_sus
 **Type**: identifier
 **Description**: Número do Cartão Nacional de Saúde (CNS)
 **Constraints**:
@@ -878,7 +861,7 @@ Informações de identificação e dados demográficos do paciente.
 **Business Rules**: Validar dígito verificador conforme algoritmo do CNS
 **Examples**: 123456789012345, 987654321098765
 
-### Column: cpf
+### cpf
 **Type**: identifier
 **Description**: Cadastro de Pessoa Física
 **Constraints**:
@@ -888,20 +871,20 @@ Informações de identificação e dados demográficos do paciente.
 **Business Rules**: Validar dígito verificador do CPF
 **Examples**: 123.456.789-00, 987.654.321-11
 
-### Column: nome_completo
+### nome_completo
 **Type**: text
 **Description**: Nome completo do paciente conforme documento de identidade
 **Constraints**:
   - required: true
 **Examples**: Maria da Silva Santos, João Pedro Oliveira, Ana Carolina Ferreira
 
-### Column: nome_social
+### nome_social
 **Type**: text
 **Description**: Nome social do paciente (opcional)
 **Business Rules**: Deve ser utilizado em todos os atendimentos e documentos quando informado
 **Examples**: João Silva, Maria Santos
 
-### Column: data_nascimento
+### data_nascimento
 **Type**: date
 **Description**: Data de nascimento do paciente
 **Constraints**:
@@ -910,7 +893,7 @@ Informações de identificação e dados demográficos do paciente.
 **Business Rules**: Deve ser data passada; usado para calcular idade
 **Examples**: 15/03/1985, 22/08/1992, 10/12/2010
 
-### Column: sexo
+### sexo
 **Type**: text
 **Description**: Sexo biológico registrado no documento
 **Enumeration**:
@@ -920,7 +903,7 @@ Informações de identificação e dados demográficos do paciente.
   - required: true
 **Examples**: M, F
 
-### Column: identidade_genero
+### identidade_genero
 **Type**: text
 **Description**: Identidade de gênero autodeclarada
 **Enumeration**:
@@ -933,7 +916,7 @@ Informações de identificação e dados demográficos do paciente.
   - nao_informado: Não deseja informar
 **Examples**: homem_cisgenero, mulher_transgenero
 
-### Column: raca_cor
+### raca_cor
 **Type**: text
 **Description**: Raça/cor autodeclarada conforme IBGE
 **Enumeration**:
@@ -945,7 +928,7 @@ Informações de identificação e dados demográficos do paciente.
 **Business Rules**: Coleta conforme classificação do IBGE para estatísticas de saúde
 **Examples**: parda, branca
 
-### Column: nome_mae
+### nome_mae
 **Type**: text
 **Description**: Nome completo da mãe do paciente
 **Constraints**:
@@ -953,18 +936,14 @@ Informações de identificação e dados demográficos do paciente.
 **Business Rules**: Campo obrigatório para identificação em casos de homônimos
 **Examples**: Maria José da Silva, Ana Paula Santos
 
-### Column: nome_pai
+### nome_pai
 **Type**: text
 **Description**: Nome completo do pai do paciente (opcional)
 **Examples**: José da Silva, Paulo Santos
 
-## Cluster: Endereço
+<!-- Sub-group: Endereço — endereço residencial do paciente, para contato e área de abrangência da UBS. -->
 
-Informações de endereço residencial do paciente.
-
-**Purpose**: Localização para contato e área de abrangência da UBS
-
-### Column: cep
+### cep
 **Type**: text
 **Description**: Código de Endereçamento Postal
 **Constraints**:
@@ -972,40 +951,40 @@ Informações de endereço residencial do paciente.
   - format: "8 dígitos, pode conter hífen"
 **Examples**: 01310-100, 20040-020, 30130-100
 
-### Column: logradouro
+### logradouro
 **Type**: text
 **Description**: Nome da rua, avenida, travessa, etc.
 **Constraints**:
   - required: true
 **Examples**: Rua das Flores, Avenida Paulista, Travessa do Comércio
 
-### Column: numero
+### numero
 **Type**: text
 **Description**: Número do imóvel
 **Constraints**:
   - required: true
 **Examples**: 123, 45, S/N
 
-### Column: complemento
+### complemento
 **Type**: text
 **Description**: Complemento do endereço (apartamento, bloco, etc.)
 **Examples**: Apto 101, Bloco B, Casa 2
 
-### Column: bairro
+### bairro
 **Type**: text
 **Description**: Bairro ou distrito
 **Constraints**:
   - required: true
 **Examples**: Centro, Copacabana, Vila Mariana
 
-### Column: municipio
+### municipio
 **Type**: text
 **Description**: Nome do município
 **Constraints**:
   - required: true
 **Examples**: São Paulo, Rio de Janeiro, Belo Horizonte
 
-### Column: uf
+### uf
 **Type**: text
 **Description**: Unidade Federativa (Estado)
 **Enumeration**:
@@ -1040,46 +1019,38 @@ Informações de endereço residencial do paciente.
   - required: true
 **Examples**: SP, RJ, MG
 
-## Cluster: Contato
+<!-- Sub-group: Contato — informações de contato do paciente, para comunicação e agendamento. -->
 
-Informações de contato do paciente.
-
-**Purpose**: Comunicação e agendamento de consultas
-
-### Column: telefone_celular
+### telefone_celular
 **Type**: text
 **Description**: Número de telefone celular com DDD
 **Constraints**:
   - format: "DDD + 9 dígitos"
 **Examples**: (11) 98765-4321, (21) 99876-5432
 
-### Column: telefone_fixo
+### telefone_fixo
 **Type**: text
 **Description**: Número de telefone fixo com DDD
 **Constraints**:
   - format: "DDD + 8 dígitos"
 **Examples**: (11) 3456-7890, (21) 2345-6789
 
-### Column: email
+### email
 **Type**: email
 **Description**: Endereço de e-mail para contato
 **Constraints**:
   - format: "e-mail válido"
 **Examples**: maria.silva@email.com.br, joao.santos@gmail.com
 
-### Column: whatsapp
+### whatsapp
 **Type**: boolean
 **Description**: Se o telefone celular possui WhatsApp
 **Business Rules**: Usado para envio de lembretes de consulta
 **Examples**: true, false
 
-## Cluster: Informações Clínicas
+<!-- Sub-group: Informações Clínicas — dados clínicos básicos do paciente, essenciais para atendimento. -->
 
-Dados clínicos básicos do paciente.
-
-**Purpose**: Informações essenciais para atendimento
-
-### Column: tipo_sanguineo
+### tipo_sanguineo
 **Type**: text
 **Description**: Tipo sanguíneo e fator Rh
 **Enumeration**:
@@ -1094,18 +1065,18 @@ Dados clínicos básicos do paciente.
   - desconhecido: Desconhecido
 **Examples**: O+, A+, AB-
 
-### Column: alergias
+### alergias
 **Type**: text
 **Description**: Lista de alergias conhecidas (medicamentos, alimentos, outros)
 **Business Rules**: Informação crítica - deve ser destacada em todos os atendimentos
 **Examples**: Dipirona, Penicilina, Nenhuma alergia conhecida
 
-### Column: doencas_cronicas
+### doencas_cronicas
 **Type**: text
 **Description**: Doenças crônicas diagnosticadas
 **Examples**: Diabetes tipo 2, Hipertensão arterial, Asma
 
-### Column: medicamentos_uso_continuo
+### medicamentos_uso_continuo
 **Type**: text
 **Description**: Medicamentos em uso contínuo
 **Examples**: Losartana 50mg, Metformina 850mg, Nenhum
@@ -1136,14 +1107,14 @@ Dados necessários para inscrição ou regularização do CPF (Cadastro de Pesso
 - Secondary use: Atualização cadastral e regularização
 - Stakeholders: Receita Federal, Bancos, Cidadãos, Empresas
 
-## Root Cluster: Dados do Requerente
+## Data: Dados do Requerente
 
 Informações pessoais do solicitante do CPF.
 
 **Purpose**: Identificação completa do requerente
 **Business Context**: Base para emissão do CPF e validação de identidade
 
-### Column: protocolo
+### protocolo
 **Type**: identifier
 **Description**: Número de protocolo da solicitação
 **Constraints**:
@@ -1152,7 +1123,7 @@ Informações pessoais do solicitante do CPF.
   - format: "12 dígitos"
 **Examples**: 202411050001, 202411050002
 
-### Column: tipo_solicitacao
+### tipo_solicitacao
 **Type**: text
 **Description**: Tipo de solicitação de CPF
 **Enumeration**:
@@ -1164,7 +1135,7 @@ Informações pessoais do solicitante do CPF.
   - required: true
 **Examples**: primeira_via, alteracao_cadastral
 
-### Column: nome_completo
+### nome_completo
 **Type**: text
 **Description**: Nome completo conforme documento de identidade (sem abreviações)
 **Constraints**:
@@ -1172,7 +1143,7 @@ Informações pessoais do solicitante do CPF.
 **Business Rules**: Deve corresponder exatamente ao nome no documento de identificação
 **Examples**: José Carlos da Silva Filho, Maria Aparecida Santos
 
-### Column: data_nascimento
+### data_nascimento
 **Type**: date
 **Description**: Data de nascimento
 **Constraints**:
@@ -1181,7 +1152,7 @@ Informações pessoais do solicitante do CPF.
 **Business Rules**: Deve ser data passada
 **Examples**: 15/03/1985, 22/08/1970
 
-### Column: sexo
+### sexo
 **Type**: text
 **Description**: Sexo conforme documento de identidade
 **Enumeration**:
@@ -1191,7 +1162,7 @@ Informações pessoais do solicitante do CPF.
   - required: true
 **Examples**: M, F
 
-### Column: nome_mae
+### nome_mae
 **Type**: text
 **Description**: Nome completo da mãe (sem abreviações)
 **Constraints**:
@@ -1199,20 +1170,20 @@ Informações pessoais do solicitante do CPF.
 **Business Rules**: Campo obrigatório conforme Lei 9.454/1997
 **Examples**: Maria José da Silva, Ana Paula Santos
 
-### Column: nome_pai
+### nome_pai
 **Type**: text
 **Description**: Nome completo do pai (sem abreviações)
 **Business Rules**: Campo opcional conforme Lei 9.454/1997
 **Examples**: João da Silva, Paulo Roberto Santos
 
-### Column: naturalidade_municipio
+### naturalidade_municipio
 **Type**: text
 **Description**: Município de nascimento
 **Constraints**:
   - required: true
 **Examples**: São Paulo, Rio de Janeiro, Salvador
 
-### Column: naturalidade_uf
+### naturalidade_uf
 **Type**: text
 **Description**: Estado de nascimento
 **ReuseComponent**: @Brasil:UnidadeFederativa
@@ -1220,7 +1191,7 @@ Informações pessoais do solicitante do CPF.
   - required: true
 **Examples**: SP, RJ, BA
 
-### Column: nacionalidade
+### nacionalidade
 **Type**: text
 **Description**: Nacionalidade do requerente
 **Enumeration**:
@@ -1231,18 +1202,14 @@ Informações pessoais do solicitante do CPF.
   - required: true
 **Examples**: brasileira, estrangeira
 
-### Column: pais_nascimento
+### pais_nascimento
 **Type**: text
 **Description**: País de nascimento (se estrangeiro)
 **Examples**: Brasil, Portugal, Argentina
 
-## Cluster: Documentação
+<!-- Sub-group: Documentação — documentos de identificação do requerente, para validação de identidade. -->
 
-Documentos de identificação do requerente.
-
-**Purpose**: Validação de identidade
-
-### Column: tipo_documento
+### tipo_documento
 **Type**: text
 **Description**: Tipo de documento de identificação apresentado
 **Enumeration**:
@@ -1256,21 +1223,21 @@ Documentos de identificação do requerente.
   - required: true
 **Examples**: rg, cnh
 
-### Column: numero_documento
+### numero_documento
 **Type**: identifier
 **Description**: Número do documento de identificação
 **Constraints**:
   - required: true
 **Examples**: 12.345.678-9, AB123456
 
-### Column: orgao_emissor
+### orgao_emissor
 **Type**: text
 **Description**: Órgão emissor do documento
 **Constraints**:
   - required: true
 **Examples**: SSP, DETRAN, IFP
 
-### Column: uf_emissao
+### uf_emissao
 **Type**: text
 **Description**: UF do órgão emissor
 **ReuseComponent**: @Brasil:UnidadeFederativa
@@ -1278,7 +1245,7 @@ Documentos de identificação do requerente.
   - required: true
 **Examples**: SP, RJ, MG
 
-### Column: data_emissao
+### data_emissao
 **Type**: date
 **Description**: Data de emissão do documento
 **Constraints**:
@@ -1287,20 +1254,16 @@ Documentos de identificação do requerente.
 **Business Rules**: Deve ser data passada e posterior à data de nascimento
 **Examples**: 10/05/2015, 22/03/2020
 
-### Column: titulo_eleitor
+### titulo_eleitor
 **Type**: identifier
 **Description**: Número do título de eleitor (se brasileiro maior de 16 anos)
 **Constraints**:
   - format: "12 dígitos"
 **Examples**: 123456789012, 987654321098
 
-## Cluster: Endereço Residencial
+<!-- Sub-group: Endereço Residencial — endereço residencial do requerente, para correspondência da Receita Federal. -->
 
-Endereço residencial do requerente.
-
-**Purpose**: Localização para correspondência da Receita Federal
-
-### Column: cep
+### cep
 **Type**: text
 **Description**: Código de Endereçamento Postal
 **Constraints**:
@@ -1308,7 +1271,7 @@ Endereço residencial do requerente.
   - format: "8 dígitos"
 **Examples**: 01310100, 20040020
 
-### Column: tipo_logradouro
+### tipo_logradouro
 **Type**: text
 **Description**: Tipo do logradouro
 **Enumeration**:
@@ -1323,40 +1286,40 @@ Endereço residencial do requerente.
   - required: true
 **Examples**: rua, avenida
 
-### Column: logradouro
+### logradouro
 **Type**: text
 **Description**: Nome do logradouro (sem o tipo)
 **Constraints**:
   - required: true
 **Examples**: das Flores, Paulista, do Comércio
 
-### Column: numero
+### numero
 **Type**: text
 **Description**: Número do imóvel
 **Constraints**:
   - required: true
 **Examples**: 123, 1000, S/N
 
-### Column: complemento
+### complemento
 **Type**: text
 **Description**: Complemento do endereço
 **Examples**: Apto 101, Bloco B, Casa 2, Sala 305
 
-### Column: bairro
+### bairro
 **Type**: text
 **Description**: Bairro ou distrito
 **Constraints**:
   - required: true
 **Examples**: Centro, Jardim Paulista, Copacabana
 
-### Column: municipio
+### municipio
 **Type**: text
 **Description**: Nome do município
 **Constraints**:
   - required: true
 **Examples**: São Paulo, Rio de Janeiro, Brasília
 
-### Column: uf
+### uf
 **Type**: text
 **Description**: Unidade Federativa
 **ReuseComponent**: @Brasil:UnidadeFederativa
@@ -1364,13 +1327,9 @@ Endereço residencial do requerente.
   - required: true
 **Examples**: SP, RJ, DF
 
-## Cluster: Contato
+<!-- Sub-group: Contato — informações de contato para comunicação oficial com a Receita Federal. -->
 
-Informações de contato para comunicação oficial.
-
-**Purpose**: Canal de comunicação com a Receita Federal
-
-### Column: ddd
+### ddd
 **Type**: text
 **Description**: Código de Discagem Direta a Distância
 **Constraints**:
@@ -1378,7 +1337,7 @@ Informações de contato para comunicação oficial.
   - format: "2 dígitos"
 **Examples**: 11, 21, 47
 
-### Column: telefone
+### telefone
 **Type**: text
 **Description**: Número do telefone (fixo ou celular)
 **Constraints**:
@@ -1386,7 +1345,7 @@ Informações de contato para comunicação oficial.
   - format: "8 ou 9 dígitos"
 **Examples**: 98765-4321, 3456-7890
 
-### Column: email
+### email
 **Type**: email
 **Description**: Endereço de e-mail para comunicações oficiais
 **Constraints**:
@@ -1420,14 +1379,14 @@ Dados cadastrais de clientes para compras online, incluindo informações pessoa
 - Secondary use: Marketing digital e programa de fidelidade
 - Stakeholders: Equipe comercial, Marketing, Logística
 
-## Root Cluster: Dados do Cliente
+## Data: Dados do Cliente
 
 Informações básicas de identificação do cliente.
 
 **Purpose**: Identificação única e contato com cliente
 **Business Context**: Base para todo relacionamento comercial
 
-### Column: id_cliente
+### id_cliente
 **Type**: identifier
 **Description**: Identificador único do cliente no sistema
 **Constraints**:
@@ -1436,14 +1395,14 @@ Informações básicas de identificação do cliente.
   - format: "UUID"
 **Examples**: 550e8400-e29b-41d4-a716-446655440000, 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
-### Column: nome_completo
+### nome_completo
 **Type**: text
 **Description**: Nome completo do cliente
 **Constraints**:
   - required: true
 **Examples**: Carlos Eduardo Silva, Fernanda Oliveira Santos
 
-### Column: cpf
+### cpf
 **Type**: identifier
 **Description**: CPF do cliente (opcional para pessoa física)
 **Constraints**:
@@ -1452,7 +1411,7 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Obrigatório para emissão de nota fiscal; validar dígito verificador
 **Examples**: 123.456.789-00, 987.654.321-11
 
-### Column: cnpj
+### cnpj
 **Type**: identifier
 **Description**: CNPJ para compras empresariais
 **Constraints**:
@@ -1461,7 +1420,7 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Usado para compras de pessoa jurídica; validar dígito verificador
 **Examples**: 12.345.678/0001-90, 98.765.432/0001-10
 
-### Column: tipo_pessoa
+### tipo_pessoa
 **Type**: text
 **Description**: Tipo de cadastro (pessoa física ou jurídica)
 **Enumeration**:
@@ -1471,7 +1430,7 @@ Informações básicas de identificação do cliente.
   - required: true
 **Examples**: fisica, juridica
 
-### Column: data_nascimento
+### data_nascimento
 **Type**: date
 **Description**: Data de nascimento (pessoa física)
 **Constraints**:
@@ -1479,7 +1438,7 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Usado para validar maioridade e campanhas de aniversário
 **Examples**: 15/08/1988, 22/03/1995
 
-### Column: genero
+### genero
 **Type**: text
 **Description**: Gênero do cliente (opcional)
 **Enumeration**:
@@ -1490,7 +1449,7 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Usado para personalização de campanhas
 **Examples**: feminino, masculino
 
-### Column: email
+### email
 **Type**: email
 **Description**: E-mail principal para login e comunicações
 **Constraints**:
@@ -1500,7 +1459,7 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Usado como login principal; deve ser verificado
 **Examples**: carlos.silva@email.com.br, fernanda@empresa.com
 
-### Column: email_verificado
+### email_verificado
 **Type**: boolean
 **Description**: Indica se o e-mail foi verificado
 **Constraints**:
@@ -1508,7 +1467,7 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Cliente deve verificar e-mail antes de primeira compra
 **Examples**: true, false
 
-### Column: telefone_celular
+### telefone_celular
 **Type**: text
 **Description**: Telefone celular com DDD
 **Constraints**:
@@ -1517,14 +1476,14 @@ Informações básicas de identificação do cliente.
 **Business Rules**: Usado para comunicação sobre pedidos e entregas
 **Examples**: (11) 98765-4321, (21) 99876-5432
 
-### Column: data_cadastro
+### data_cadastro
 **Type**: datetime
 **Description**: Data e hora do cadastro no sistema
 **Constraints**:
   - required: true
 **Examples**: 2024-11-05T14:30:00, 2024-10-15T09:15:00
 
-### Column: status_cadastro
+### status_cadastro
 **Type**: text
 **Description**: Status atual do cadastro
 **Enumeration**:
@@ -1536,13 +1495,9 @@ Informações básicas de identificação do cliente.
   - required: true
 **Examples**: ativo, pendente
 
-## Cluster: Endereço de Entrega Principal
+<!-- Sub-group: Endereço de Entrega Principal — endereço padrão para entrega de pedidos. -->
 
-Endereço principal para entrega de produtos.
-
-**Purpose**: Local de entrega padrão para pedidos
-
-### Column: nome_destinatario
+### nome_destinatario
 **Type**: text
 **Description**: Nome do destinatário para a entrega
 **Constraints**:
@@ -1550,7 +1505,7 @@ Endereço principal para entrega de produtos.
 **Business Rules**: Pode ser diferente do nome do cliente
 **Examples**: Carlos Eduardo Silva, Maria Santos (trabalho)
 
-### Column: cep
+### cep
 **Type**: text
 **Description**: CEP do endereço de entrega
 **Constraints**:
@@ -1559,46 +1514,46 @@ Endereço principal para entrega de produtos.
 **Business Rules**: Usado para cálculo de frete
 **Examples**: 01310-100, 20040-020
 
-### Column: logradouro
+### logradouro
 **Type**: text
 **Description**: Nome da rua/avenida
 **Constraints**:
   - required: true
 **Examples**: Rua Augusta, Avenida Paulista
 
-### Column: numero
+### numero
 **Type**: text
 **Description**: Número do endereço
 **Constraints**:
   - required: true
 **Examples**: 1000, 234, S/N
 
-### Column: complemento
+### complemento
 **Type**: text
 **Description**: Complemento do endereço (apartamento, bloco, etc.)
 **Business Rules**: Importante para entregas em condomínios
 **Examples**: Apto 101 Bloco B, Casa 2, Torre 3
 
-### Column: ponto_referencia
+### ponto_referencia
 **Type**: text
 **Description**: Ponto de referência para facilitar localização
 **Examples**: Próximo ao metrô, Em frente à padaria, Ao lado do posto
 
-### Column: bairro
+### bairro
 **Type**: text
 **Description**: Bairro do endereço
 **Constraints**:
   - required: true
 **Examples**: Consolação, Copacabana, Savassi
 
-### Column: cidade
+### cidade
 **Type**: text
 **Description**: Cidade do endereço de entrega
 **Constraints**:
   - required: true
 **Examples**: São Paulo, Rio de Janeiro, Belo Horizonte
 
-### Column: uf
+### uf
 **Type**: text
 **Description**: Estado do endereço de entrega
 **ReuseComponent**: @Brasil:UnidadeFederativa
@@ -1606,13 +1561,9 @@ Endereço principal para entrega de produtos.
   - required: true
 **Examples**: SP, RJ, MG
 
-## Cluster: Preferências de Compra
+<!-- Sub-group: Preferências de Compra — preferências e histórico de compras do cliente, para personalização e segmentação. -->
 
-Preferências e histórico de compras do cliente.
-
-**Purpose**: Personalização e segmentação de marketing
-
-### Column: categorias_interesse
+### categorias_interesse
 **Type**: text
 **Description**: Categorias de produtos de interesse do cliente
 **Enumeration**:
@@ -1627,7 +1578,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Usado para recomendações personalizadas
 **Examples**: eletronicos, moda
 
-### Column: aceita_newsletter
+### aceita_newsletter
 **Type**: boolean
 **Description**: Aceita receber newsletter com ofertas e novidades
 **Constraints**:
@@ -1635,7 +1586,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Conforme LGPD, necessita consentimento explícito
 **Examples**: true, false
 
-### Column: aceita_sms
+### aceita_sms
 **Type**: boolean
 **Description**: Aceita receber SMS com informações de pedidos e ofertas
 **Constraints**:
@@ -1643,7 +1594,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Conforme LGPD, necessita consentimento explícito
 **Examples**: true, false
 
-### Column: aceita_whatsapp
+### aceita_whatsapp
 **Type**: boolean
 **Description**: Aceita receber mensagens via WhatsApp
 **Constraints**:
@@ -1651,7 +1602,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Conforme LGPD, necessita consentimento explícito
 **Examples**: true, false
 
-### Column: valor_total_compras
+### valor_total_compras
 **Type**: decimal
 **Description**: Valor total acumulado de todas as compras
 **Units**: BRL
@@ -1662,7 +1613,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Atualizado após confirmação de pagamento
 **Examples**: 1250.50, 5432.10, 15000.00
 
-### Column: numero_pedidos
+### numero_pedidos
 **Type**: integer
 **Description**: Quantidade total de pedidos realizados
 **Units**: pedidos
@@ -1671,7 +1622,7 @@ Preferências e histórico de compras do cliente.
 **Relationships**: Contagem de todos os pedidos finalizados
 **Examples**: 5, 12, 48
 
-### Column: ticket_medio
+### ticket_medio
 **Type**: decimal
 **Description**: Valor médio por pedido
 **Units**: BRL
@@ -1682,7 +1633,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Calculado automaticamente; atualizado após cada compra
 **Examples**: 250.10, 452.67, 312.50
 
-### Column: ultima_compra
+### ultima_compra
 **Type**: date
 **Description**: Data da última compra realizada
 **Constraints**:
@@ -1690,7 +1641,7 @@ Preferências e histórico de compras do cliente.
 **Business Rules**: Usado para identificar clientes inativos
 **Examples**: 15/10/2024, 22/09/2024
 
-### Column: nivel_fidelidade
+### nivel_fidelidade
 **Type**: text
 **Description**: Nível no programa de fidelidade
 **Enumeration**:
@@ -1704,7 +1655,7 @@ Preferências e histórico de compras do cliente.
 
 ### Example 6: Civil Registry with Subject/Provider/Participation
 
-This example demonstrates the SDC4 participation model — separating **who** (Subject, Provider, Participation) from **what** (Root Cluster data).
+This example demonstrates the SDC4 participation model — separating **who** (Subject, Provider, Participation) from **what** (the `## Data:` section).
 
 ```yaml
 ---
@@ -1732,7 +1683,7 @@ Official birth registration data maintained by the civil registry office.
 ## Subject: Registered Person
 **Description**: The individual whose birth is being registered
 
-### Column: national_id
+### national_id
 **Type**: identifier
 **Description**: Unique national citizen identifier
 **Constraints**:
@@ -1740,21 +1691,21 @@ Official birth registration data maintained by the civil registry office.
   - unique: true
 **Examples**: CID-2024-001234, CID-2024-005678
 
-### Column: given_name
+### given_name
 **Type**: text
 **Description**: Given name of the registered person
 **Constraints**:
   - required: true
 **Examples**: María, Carlos, Ana
 
-### Column: family_name
+### family_name
 **Type**: text
 **Description**: Family name (surname) of the registered person
 **Constraints**:
   - required: true
 **Examples**: García, López, Martínez
 
-### Column: date_of_birth
+### date_of_birth
 **Type**: date
 **Description**: Date of birth
 **Constraints**:
@@ -1762,7 +1713,7 @@ Official birth registration data maintained by the civil registry office.
   - format: "YYYY-MM-DD"
 **Examples**: 2024-03-15, 2024-07-22
 
-### Column: sex
+### sex
 **Type**: text
 **Description**: Biological sex as recorded at birth
 **Enumeration**:
@@ -1776,21 +1727,21 @@ Official birth registration data maintained by the civil registry office.
 ## Provider: Registry Office
 **Description**: The government office that maintains this birth record
 
-### Column: office_name
+### office_name
 **Type**: text
 **Description**: Official name of the civil registry office
 **Constraints**:
   - required: true
 **Examples**: Central Registry Office, District 5 Registry
 
-### Column: office_code
+### office_code
 **Type**: identifier
 **Description**: Unique identifier for the registry office
 **Constraints**:
   - required: true
 **Examples**: REG-001, REG-042
 
-### Column: jurisdiction
+### jurisdiction
 **Type**: text
 **Description**: Geographic jurisdiction of the registry office
 **Examples**: Central District, Northern Province
@@ -1801,14 +1752,14 @@ Official birth registration data maintained by the civil registry office.
 **Function Description**: Officer authorized by law to record civil events
 **Mode**: In Person
 
-### Column: officer_id
+### officer_id
 **Type**: identifier
 **Description**: Employee identifier of the registrar
 **Constraints**:
   - required: true
 **Examples**: OFF-1234, OFF-5678
 
-### Column: officer_name
+### officer_name
 **Type**: text
 **Description**: Full name of the registrar
 **Constraints**:
@@ -1821,14 +1772,14 @@ Official birth registration data maintained by the civil registry office.
 **Function Description**: Parent or authorized person declaring the birth
 **Mode**: In Person
 
-### Column: declarant_name
+### declarant_name
 **Type**: text
 **Description**: Full name of the person declaring the birth
 **Constraints**:
   - required: true
 **Examples**: José García López, Carmen Martínez Ruiz
 
-### Column: relationship
+### relationship
 **Type**: text
 **Description**: Relationship of declarant to the registered person
 **Enumeration**:
@@ -1840,14 +1791,14 @@ Official birth registration data maintained by the civil registry office.
   - required: true
 **Examples**: mother, father
 
-## Root Cluster: Birth Record Data
+## Data: Birth Record Data
 
 Core birth registration data and administrative details.
 
 **Purpose**: Official record of the birth event
 **Business Context**: Legal document for vital statistics and identity
 
-### Column: registration_number
+### registration_number
 **Type**: identifier
 **Description**: Unique registration number for this birth record
 **Constraints**:
@@ -1855,7 +1806,7 @@ Core birth registration data and administrative details.
   - unique: true
 **Examples**: BR-2024-001234, BR-2024-005678
 
-### Column: registration_date
+### registration_date
 **Type**: date
 **Description**: Date the birth was officially registered
 **Constraints**:
@@ -1864,14 +1815,14 @@ Core birth registration data and administrative details.
 **Business Rules**: Must be on or after the date of birth
 **Examples**: 2024-03-20, 2024-08-01
 
-### Column: place_of_birth
+### place_of_birth
 **Type**: text
 **Description**: Location where the birth occurred
 **Constraints**:
   - required: true
 **Examples**: City General Hospital, Home - 123 Oak Street
 
-### Column: birth_type
+### birth_type
 **Type**: text
 **Description**: Type of birth (single or multiple)
 **Enumeration**:
@@ -1920,26 +1871,28 @@ When a user provides a form or form description, follow these steps:
 - If the form has a clear "about whom" (patient, applicant, citizen) → create `## Subject:` section
 - If the form identifies who maintains the data (hospital, agency, office) → create `## Provider:` section
 - If the form identifies other participants (registrar, physician, inspector) → create `## Participation:` sections
-- Place demographic/identity fields (names, IDs, birth dates) under the appropriate party section, NOT the Root Cluster
+- Place demographic/identity fields (names, IDs, birth dates) under the appropriate party section, NOT the Data section
 - Skip this step if the form is purely data-focused with no clear actors
 
-**5. Create Root Cluster**
+**5. Create the Data section**
+- Use exactly one `## Data: <Name>` section per template
 - Name it appropriately based on the form's main content (the data payload, not the participants)
-- Provide purpose and business context
+- Provide purpose and business context as keywords (`**Purpose**:`, `**Business Context**:`)
 - Use source language for names and descriptions
 
 **6. Convert Each Form Field to a Column**
 - Use field label as column name (convert to lowercase_with_underscores)
+- Render each column as `### column_name` (no `Column:` prefix)
 - Map field type to appropriate SDC4 type
 - Write detailed description in source language
 - Add constraints (required, format, range)
 - Include enumeration if field has fixed options
 - Provide realistic examples in source language
 
-**7. Organize with Multiple Clusters**
-- Group related fields into separate clusters
-- Use form sections as guidance
-- Create hierarchical structure if form has multiple levels
+**7. Keep the Data section flat**
+- All form-payload columns go directly under the single `## Data:` section as a flat list
+- Do not split the payload across multiple `## Data:` sections — md2pd keeps only the last one and discards the rest
+- For visual grouping in the template source, use HTML comments (`<!-- Sub-group: ... -->`); they have no effect on the parsed output
 
 **8. Review and Validate**
 - Ensure all REQUIRED keywords are present (Type, Description, Examples)
@@ -2010,18 +1963,19 @@ When a user provides a form or form description, follow these steps:
 Before providing the template to the user, verify:
 
 **Structure:**
-- [ ] YAML front matter present with `template_version: "4.0.0"`
-- [ ] Dataset Overview section with Purpose and Business Context
-- [ ] At least one Root Cluster defined
-- [ ] All data columns are under a cluster
+- [ ] YAML front matter present with `template_version: "4.0.0"` (or `"4.x.x"`)
+- [ ] Dataset Overview section (H1 `# Dataset Overview`) with Purpose and Business Context
+- [ ] Exactly one `## Data:` section defined
+- [ ] All form-payload columns are under that single `## Data:` section
+- [ ] Columns use `### column_name` (no `Column:` prefix)
 - [ ] Subject/Provider/Participation sections used when form has clear actors (optional but recommended)
-- [ ] Demographic fields (names, IDs, birth dates) placed under Subject, not Root Cluster (when Subject is used)
+- [ ] Demographic fields (names, IDs, birth dates) placed under Subject, not Data (when Subject is used)
 - [ ] No more than one `## Subject:` and one `## Provider:` section
 
 **Keywords (English):**
 - [ ] All keywords use English (Type, Description, Enumeration, etc.)
 - [ ] All data types in English (text, integer, date, etc.)
-- [ ] All structural keywords in English (Column:, Root Cluster:, Subject:, Provider:, Participation:, etc.)
+- [ ] All section headings in English (`## Data:`, `## Subject:`, `## Provider:`, `## Participation:`, `## Workflow:`, `## Attestation:`, `## Audit:`, `## Links:`)
 
 **Content (Source Language):**
 - [ ] Column names in source language (or English if form is English)
@@ -2045,7 +1999,7 @@ Before providing the template to the user, verify:
 - [ ] Examples are realistic and properly formatted
 - [ ] Enumerations include all options from the form
 - [ ] Constraints match form validation rules
-- [ ] Cluster organization is logical
+- [ ] Column ordering within the Data section is logical (use HTML-comment sub-group markers if helpful)
 
 ---
 
@@ -2079,14 +2033,14 @@ Patient intake information collected during registration, including demographics
 - Secondary use: Emergency notifications
 - Stakeholders: Registration staff, Clinical staff, Emergency services
 
-## Root Cluster: Patient Information
+## Data: Patient Information
 
 Core patient demographic and contact information.
 
 **Purpose**: Unique patient identification and contact details
 **Business Context**: Required for all clinical encounters
 
-### Column: patient_id
+### patient_id
 **Type**: identifier
 **Description**: Unique patient identifier assigned at registration
 **Constraints**:
@@ -2094,14 +2048,14 @@ Core patient demographic and contact information.
   - unique: true
 **Examples**: PAT-001234, PAT-005678
 
-### Column: full_name
+### full_name
 **Type**: text
 **Description**: Patient's complete legal name (first and last)
 **Constraints**:
   - required: true
 **Examples**: John Smith, Mary Johnson, Wei Chen
 
-### Column: date_of_birth
+### date_of_birth
 **Type**: date
 **Description**: Patient's date of birth
 **Constraints**:
@@ -2110,7 +2064,7 @@ Core patient demographic and contact information.
 **Business Rules**: Must be past date; used to calculate current age
 **Examples**: 1985-03-15, 1970-12-01, 2000-08-22
 
-### Column: gender
+### gender
 **Type**: text
 **Description**: Patient's gender identity
 **Enumeration**:
@@ -2121,35 +2075,30 @@ Core patient demographic and contact information.
   - required: true
 **Examples**: male, female, other
 
-### Column: email
+### email
 **Type**: email
 **Description**: Patient's primary email address for communications
 **Constraints**:
   - format: "valid email address"
 **Examples**: john.smith@example.com, mary.j@email.org
 
-### Column: phone
+### phone
 **Type**: text
 **Description**: Patient's primary contact phone number
 **Constraints**:
   - format: "phone number with area code"
 **Examples**: (555) 123-4567, 555-987-6543
 
-## Cluster: Emergency Contact
+<!-- Sub-group: Emergency Contact — contact person in case of patient emergency. Critical when patient cannot communicate. -->
 
-Emergency contact person information.
-
-**Purpose**: Contact person in case of patient emergency
-**Business Context**: Critical for emergency situations when patient cannot communicate
-
-### Column: emergency_contact_name
+### emergency_contact_name
 **Type**: text
 **Description**: Full name of emergency contact person
 **Constraints**:
   - required: true
 **Examples**: Jane Smith, Robert Johnson
 
-### Column: emergency_contact_phone
+### emergency_contact_phone
 **Type**: text
 **Description**: Phone number of emergency contact person
 **Constraints**:
@@ -2223,7 +2172,7 @@ When building a template, search the catalog for relevant components before crea
 4. Use it in the template:
 
 ```markdown
-### Column: state
+### state
 **Type**: identifier
 **Description**: US state selection
 **ReuseComponent**: @NIEM:StateUSPostalServiceCode
@@ -2238,11 +2187,11 @@ This avoids creating a duplicate component and leverages existing, validated def
 You now have everything needed to generate SDCStudio templates:
 
 1. **YAML Front Matter** - Always start with this
-2. **Dataset Overview** - Explain the purpose
+2. **Dataset Overview** - `# Dataset Overview` H1 with Purpose and Business Context
 3. **Subject/Provider/Participation** - Model who is involved (optional but recommended when actors exist)
-4. **Root Cluster** - Primary data grouping (the "what")
-5. **Columns** - Individual fields with Type, Description, Examples, and optional constraints
-6. **Multiple Clusters** - Logical groupings for related fields
+4. **Data Section** - Exactly one `## Data:` section per template; the form payload (the "what")
+5. **Columns** - Individual fields as `### column_name` with Type, Description, Examples, and optional constraints
+6. **Flat layout** - All form-payload columns flat under the single `## Data:` section; use HTML-comment sub-group markers for visual grouping
 7. **Language Rules** - Keywords in English, content in source language
 8. **Quality Checklist** - Validate before providing to user
 9. **Catalog API** - Query published components for reuse (if HTTP access available)
@@ -2256,6 +2205,6 @@ You now have everything needed to generate SDCStudio templates:
 - Use enumeration for categorical fields
 - Provide realistic, source-language examples
 - Use Subject/Provider/Participation sections when the form has identifiable actors
-- Keep demographic data (names, IDs, birth dates) in Subject section, not in Root Cluster
+- Keep demographic data (names, IDs, birth dates) in Subject section, not in the Data section
 
 Generate templates that are clear, complete, and ready to upload to SDCStudio!

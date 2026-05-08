@@ -1,883 +1,547 @@
-"""Tests for form2sdc.validator implementing all 12 spec test cases plus additional coverage.
+"""Tests for ``form2sdc.validator`` (md2pd-aligned, 4.2.0+).
 
-Test cases 1-12 are from VALIDATOR_SPECIFICATION.md section 7.
-Additional tests cover rules not in the spec's test suite.
+Each test exercises one validation rule. Rule codes are stable contracts
+documented in ``VALIDATOR_SPECIFICATION.md``.
 """
 
-import pytest
+from __future__ import annotations
 
 from form2sdc.validator import Form2SDCValidator
 
 
-@pytest.fixture
-def validator():
-    return Form2SDCValidator()
+def _validate(content: str):
+    return Form2SDCValidator().validate(content)
 
 
-# ════════════════════════════════════════════════════════════════════
-# Spec Test Cases (section 7)
-# ════════════════════════════════════════════════════════════════════
+def _has_error(result, code: str) -> bool:
+    return any(e.code == code for e in result.errors)
 
 
-class TestSpecValidTemplates:
-    """Tests 1-2: Valid templates should produce valid=True."""
-
-    def test_01_minimal_valid_template(self, validator, valid_minimal_template):
-        """Test 1: Minimal valid template."""
-        result = validator.validate(valid_minimal_template)
-        assert result.valid is True
-        assert result.errors == []
-
-    def test_02_complete_template_all_types(self, validator, valid_complete_template):
-        """Test 2: Complete template with all types."""
-        result = validator.validate(valid_complete_template)
-        assert result.valid is True
-        assert result.errors == []
+def _has_warning(result, code: str) -> bool:
+    return any(w.code == code for w in result.warnings)
 
 
-class TestSpecCriticalErrors:
-    """Tests 3-9: CRITICAL error detection."""
+def _has_suggestion(result, code: str) -> bool:
+    return any(s.code == code for s in result.suggestions)
 
-    def test_03_missing_yaml_front_matter(self, validator):
-        """Test 3: Missing YAML front matter."""
-        content = """## Data: Root
 
-**Type**: Cluster
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-DOC-001" for e in result.errors)
+# ── Front matter (E-DOC-*) ──────────────────────────────────────────
 
-    def test_04_missing_required_fields(self, validator):
-        """Test 4: Missing source_language and template_version."""
-        content = """---
+
+def test_missing_front_matter_emits_e_doc_001() -> None:
+    result = _validate("# Just markdown, no YAML\n")
+    assert not result.valid
+    assert _has_error(result, "E-DOC-001")
+
+
+def test_invalid_yaml_emits_e_doc_002() -> None:
+    content = """---
+template_version: "4.0.0
 dataset:
   name: "Test"
 ---
 
-## Data: Root
-
-**Type**: Cluster
+## Data: X
 """
-        result = validator.validate(content)
-        assert result.valid is False
-        codes = {e.code for e in result.errors}
-        assert "E-DOC-004" in codes  # missing source_language
-        assert "E-DOC-005" in codes  # missing template_version
+    result = _validate(content)
+    assert not result.valid
+    assert _has_error(result, "E-DOC-002")
 
-    def test_05_invalid_component_type(self, validator):
-        """Test 5: Invalid component Type value."""
-        content = """---
-template_version: "1.0.0"
+
+def test_missing_template_version_emits_e_doc_003() -> None:
+    content = """---
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
-## Data: Root
+## Data: X
 
-**Type**: Cluster
-
-### Name
-
-**Type**: String
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(
-            e.code == "E-CMP-002" and e.component == "Name"
-            for e in result.errors
-        )
+    result = _validate(content)
+    assert not result.valid
+    assert _has_error(result, "E-DOC-003")
 
-    def test_06_missing_units_for_quantified(self, validator):
-        """Test 6: Missing Units for XdQuantity."""
-        content = """---
-template_version: "1.0.0"
+
+def test_template_version_3_emits_e_doc_003() -> None:
+    content = """---
+template_version: "3.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
-## Data: Root
+## Data: X
 
-**Type**: Cluster
-
-### Weight
-
-**Type**: XdQuantity
-**Description**: Body weight
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(
-            e.code == "E-REQ-001" and e.component == "Weight"
-            for e in result.errors
-        )
+    result = _validate(content)
+    assert not result.valid
+    assert _has_error(result, "E-DOC-003")
 
-    def test_07_xdstring_pattern_and_enumeration(self, validator):
-        """Test 7: XdString with both Pattern and Enumeration."""
-        content = """---
-template_version: "1.0.0"
+
+def test_template_version_4_2_1_is_accepted() -> None:
+    content = """---
+template_version: "4.2.1"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
-## Data: Root
+## Data: X
 
-**Type**: Cluster
-
-### Color
-
-**Type**: XdString
-**Pattern**: ^[A-Z]+$
-**Enumeration**: Red, Green, Blue
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(
-            e.code == "E-BIZ-003" and e.component == "Color"
-            for e in result.errors
-        )
+    result = _validate(content)
+    assert not _has_error(result, "E-DOC-003")
 
-    def test_08_xdboolean_with_enumeration(self, validator):
-        """Test 8: XdBoolean with Enumeration."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
 
-## Data: Root
+# ── Section structure (E-SEC-*) ─────────────────────────────────────
 
-**Type**: Cluster
 
-### Active
-
-**Type**: XdBoolean
-**Enumeration**: Yes, No
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(
-            e.code == "E-BIZ-001" and e.component == "Active"
-            for e in result.errors
-        )
-
-    def test_09_no_cluster_component(self, validator):
-        """Test 9: No Cluster component found."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-### Name
-
-**Type**: XdString
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-DOC-007" for e in result.errors)
-
-
-class TestSpecEdgeCases:
-    """Tests 10-12: Edge cases."""
-
-    def test_10_deprecated_values_keyword(self, validator):
-        """Test 10: Deprecated 'Values' keyword produces warning."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Status
-
-**Type**: XdString
-**Values**: Active, Inactive
-"""
-        result = validator.validate(content)
-        assert result.valid is True  # Warnings don't block
-        assert any(w.code == "W-DEP-001" for w in result.warnings)
-
-    def test_11_component_reuse(self, validator):
-        """Test 11: Valid component reuse syntax."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Address
-
-**Type**: @Common:PostalAddress
-"""
-        result = validator.validate(content)
-        assert result.valid is True
-        assert result.errors == []
-
-    def test_12_empty_units_value(self, validator):
-        """Test 12: Empty Units value."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Weight
-
-**Type**: XdQuantity
-**Units**:
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-REQ-002" for e in result.errors)
-
-
-# ════════════════════════════════════════════════════════════════════
-# Additional coverage for rules not in spec test suite
-# ════════════════════════════════════════════════════════════════════
-
-
-class TestDocumentStructure:
-    """Additional E-DOC tests."""
-
-    def test_invalid_yaml_syntax(self, validator):
-        """E-DOC-002: Invalid YAML."""
-        content = """---
-dataset:
-  name: "Test
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-DOC-002" for e in result.errors)
-
-    def test_empty_body(self, validator):
-        """E-DOC-006: Empty body after front matter."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-DOC-006" for e in result.errors)
-
-    def test_missing_dataset_name(self, validator):
-        """E-DOC-003: Missing dataset.name."""
-        content = """---
-source_language: "English"
-template_version: "1.0.0"
----
-
-## Data: Root
-
-**Type**: Cluster
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-DOC-003" for e in result.errors)
-
-
-class TestComponentStructure:
-    """E-CMP-003, E-CMP-004, E-CMP-005 tests."""
-
-    def test_type_not_first_keyword(self, validator):
-        """E-CMP-003: Type must be first keyword."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Patient Name
-
-**Description**: Full name of the patient
-**Type**: XdString
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(
-            e.code == "E-CMP-003" and e.component == "Patient Name"
-            for e in result.errors
-        )
-
-    def test_duplicate_component_names(self, validator):
-        """E-CMP-005: Duplicate component names."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Name
-
-**Type**: XdString
-**Description**: First name
-
-### Name
-
-**Type**: XdString
-**Description**: Last name
-"""
-        result = validator.validate(content)
-        assert any(e.code == "E-CMP-005" for e in result.errors)
-
-    def test_missing_type_keyword(self, validator):
-        """E-CMP-001: Missing Type keyword with name-based suggestion."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Patient Name
-
-**Description**: Person's full name
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-CMP-001" for e in result.errors)
-
-
-class TestBusinessLogic:
-    """E-BIZ-002 through E-BIZ-007 tests."""
-
-    def test_xdboolean_with_pattern(self, validator):
-        """E-BIZ-002: XdBoolean cannot have Pattern."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Active
-
-**Type**: XdBoolean
-**Pattern**: ^(true|false)$
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-BIZ-002" for e in result.errors)
-
-    def test_min_length_exceeds_max_length(self, validator):
-        """E-BIZ-004: Min Length > Max Length."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Code
-
-**Type**: XdString
-**Min Length**: 10
-**Max Length**: 5
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-BIZ-004" for e in result.errors)
-
-    def test_min_magnitude_exceeds_max(self, validator):
-        """E-BIZ-005: Min Magnitude > Max Magnitude."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Score
-
-**Type**: XdCount
-**Units**: points
-**Min Magnitude**: 100
-**Max Magnitude**: 50
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-BIZ-005" for e in result.errors)
-
-    def test_min_date_exceeds_max_date(self, validator):
-        """E-BIZ-006: Min Date > Max Date."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Event Date
-
-**Type**: XdTemporal
-**Temporal Type**: date
-**Min Date**: 2025-01-01
-**Max Date**: 2020-01-01
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-BIZ-006" for e in result.errors)
-
-    def test_invalid_regex_pattern(self, validator):
-        """E-BIZ-007: Invalid regex pattern."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Code
-
-**Type**: XdString
-**Pattern**: ^[A-Z
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-BIZ-007" for e in result.errors)
-
-
-class TestSyntaxErrors:
-    """E-SYN-002, E-SYN-003 tests."""
-
-    def test_invalid_numeric_value(self, validator):
-        """E-SYN-002: Non-numeric value for numeric keyword."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Weight
-
-**Type**: XdQuantity
-**Units**: kg
-**Min Magnitude**: abc
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-SYN-002" for e in result.errors)
-
-    def test_invalid_component_reference(self, validator):
-        """E-SYN-003: Invalid @Project:Label format."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Address
-
-**Type**: @Invalid Format
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-SYN-003" for e in result.errors)
-
-
-class TestRequiredFields:
-    """E-REQ tests."""
-
-    def test_xdcount_requires_units(self, validator):
-        """E-REQ-001: XdCount requires Units."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Count
-
-**Type**: XdCount
-**Description**: A count
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(
-            e.code == "E-REQ-001" and e.component == "Count"
-            for e in result.errors
-        )
-
-    def test_xdfloat_requires_units(self, validator):
-        """E-REQ-001: XdFloat requires Units."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Temp
-
-**Type**: XdFloat
-**Description**: Temperature
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-REQ-001" for e in result.errors)
-
-    def test_xddouble_requires_units(self, validator):
-        """E-REQ-001: XdDouble requires Units."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Coordinate
-
-**Type**: XdDouble
-**Description**: GPS coordinate
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-REQ-001" for e in result.errors)
-
-    def test_xdordinal_requires_enumeration(self, validator):
-        """E-REQ-003: XdOrdinal requires Enumeration."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Severity
-
-**Type**: XdOrdinal
-**Description**: Severity level
-"""
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-REQ-003" for e in result.errors)
-
-
-class TestWarnings:
-    """Warning rule tests."""
-
-    def test_missing_description_warning(self, validator):
-        """W-BP-001: Missing Description."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### SSN
-
-**Type**: XdString
-"""
-        result = validator.validate(content)
-        assert any(w.code == "W-BP-001" for w in result.warnings)
-
-    def test_short_component_name(self, validator):
-        """W-BP-002: Short component name."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### ID
-
-**Type**: XdString
-**Description**: An identifier
-"""
-        result = validator.validate(content)
-        assert any(w.code == "W-BP-002" for w in result.warnings)
-
-    def test_deprecated_unit_keyword(self, validator):
-        """W-DEP-002: Deprecated 'Unit' keyword."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Weight
-
-**Type**: XdQuantity
-**Unit**: kg
-"""
-        result = validator.validate(content)
-        assert result.valid is True
-        assert any(w.code == "W-DEP-002" for w in result.warnings)
-
-    def test_temporal_without_temporal_type(self, validator):
-        """W-BP-006: XdTemporal without Temporal Type."""
-        content = """---
-template_version: "1.0.0"
-dataset:
-  name: "Test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-
-### Event Date
-
-**Type**: XdTemporal
-**Description**: When the event occurred
-"""
-        result = validator.validate(content)
-        assert any(w.code == "W-BP-006" for w in result.warnings)
-
-
-class TestSectionHandling:
-    """Test all 8 SDC4 section types are handled correctly."""
-
-    def test_data_section_not_treated_as_component(self, validator):
-        """Data section heading should be skipped by component parser."""
-        content = """---
+def test_unknown_section_heading_emits_e_sec_001() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
-## Data: Clinical Records
+## Cluster: Patient
 
-**Type**: Cluster
-**Description**: Main data cluster
-
-### diagnosis
-
-**Type**: XdString
-**Description**: Primary diagnosis
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is True
+    result = _validate(content)
+    assert _has_error(result, "E-SEC-001")
 
-    def test_subject_section_not_treated_as_component(self, validator):
-        """Subject section should not require **Type** keyword."""
-        content = """---
+
+def test_root_cluster_heading_emits_e_sec_001() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
-## Subject: Respondent
+## Root Cluster: Patient
 
-**Description**: The individual whose information is being captured.
-
-### full_name
-
-**Type**: XdString
-**Description**: Full legal name
-
-## Data: Form Data
-
-**Type**: Cluster
-**Description**: Main data cluster
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is True
-        assert not any(e.code == "E-CMP-001" for e in result.errors)
+    result = _validate(content)
+    assert _has_error(result, "E-SEC-001")
 
-    def test_all_section_types_accepted(self, validator):
-        """All 8 section types should be accepted without errors."""
-        content = """---
+
+def test_missing_data_section_emits_e_sec_002() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
-
-## Data: Clinical Data
-
-**Type**: Cluster
-**Description**: Clinical data cluster
-
-### diagnosis
-
-**Type**: XdString
-**Description**: Primary diagnosis
 
 ## Subject: Patient
-
-**Description**: The patient being treated.
-
-### patient_name
-
-**Type**: XdString
-**Description**: Patient full name
-
-## Provider: Hospital
-
-**Description**: The treating facility.
-
-### hospital_name
-
-**Type**: XdString
-**Description**: Hospital name
-
-## Participation: Physician
-
-**Description**: The attending physician.
-**Function**: Attending
-**Mode**: Direct
-
-### physician_name
-
-**Type**: XdString
-**Description**: Physician name
-
-## Workflow: Status
-
-**Description**: Workflow tracking
-
-## Attestation: Signature
-
-**View**: application/pdf
-
-## Audit: System Log
-
-**System ID**: ehr-01
-
-## Links:
-
-  - https://example.com/ontology
+**Description**: The patient
 """
-        result = validator.validate(content)
-        assert result.valid is True
-        assert not any(e.code == "E-CMP-001" for e in result.errors)
-        assert not any(e.code == "E-DOC-007" for e in result.errors)
+    result = _validate(content)
+    assert _has_error(result, "E-SEC-002")
 
-    def test_data_section_still_required(self, validator):
-        """Even with other sections, a Data section with Cluster must exist."""
-        content = """---
+
+def test_multiple_data_sections_emit_e_sec_003() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
-## Subject: Respondent
+## Data: First
 
-**Description**: The respondent.
+### a
+**Type**: text
+**Description**: A
+**Examples**: x
 
-### name
+## Data: Second
 
-**Type**: XdString
-**Description**: Name
+### b
+**Type**: text
+**Description**: B
+**Examples**: y
 """
-        result = validator.validate(content)
-        assert result.valid is False
-        assert any(e.code == "E-DOC-007" for e in result.errors)
+    result = _validate(content)
+    assert _has_error(result, "E-SEC-003")
 
-    def test_workflow_section_skipped(self, validator):
-        """Workflow section heading should not be parsed as component."""
-        content = """---
+
+def test_multiple_subject_sections_emit_e_sec_004() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Subject: First
+**Description**: First subject
+
+## Subject: Second
+**Description**: Second subject
+
+## Data: Root
+
+### a
+**Type**: text
+**Description**: A
+**Examples**: x
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-SEC-004")
+
+
+# ── Column heading (E-COL-001, E-COL-002) ───────────────────────────
+
+
+def test_column_with_column_prefix_emits_e_col_001() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### Column: foo
+**Type**: text
+**Description**: A field
+**Examples**: a
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-001")
+
+
+# ── Column keywords (E-COL-003, E-COL-004) ──────────────────────────
+
+
+def test_deprecated_keyword_values_emits_e_col_003() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: text
+**Description**: A field
+**Values**:
+  - a: A value
+  - b: B value
+**Examples**: a
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-003")
+
+
+def test_legacy_min_length_keyword_emits_e_col_004() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: text
+**Description**: A field
+**Min Length**: 2
+**Max Length**: 100
+**Examples**: abc
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-004")
+
+
+def test_legacy_pattern_keyword_emits_e_col_004() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: text
+**Description**: A field
+**Pattern**: ^[A-Z]+$
+**Examples**: ABC
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-004")
+
+
+# ── Type validation (E-COL-005, E-COL-006) ──────────────────────────
+
+
+def test_invalid_type_emits_e_col_005() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: XdRatio
+**Description**: A field
+**Examples**: a
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-005")
+
+
+def test_xdboolean_with_enumeration_emits_e_col_006() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### consent
+**Type**: xdboolean
+**Description**: Consent given
+**Enumeration**:
+  - yes: Yes
+  - no: No
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-006")
+
+
+# ── Constraints (E-COL-007, E-COL-008, E-COL-009, E-COL-011) ────────
+
+
+def test_unknown_constraint_subkey_emits_e_col_007() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: text
+**Description**: A field
+**Constraints**:
+  - format: "UUID v4"
+**Examples**: a
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-007")
+
+
+def test_unique_constraint_subkey_emits_e_col_007() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: text
+**Description**: A field
+**Constraints**:
+  - unique: true
+**Examples**: a
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-007")
+
+
+def test_non_integer_precision_emits_e_col_008() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: decimal
+**Description**: A field
+**Units**: USD
+**Constraints**:
+  - precision: two
+**Examples**: 1.0
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-008")
+
+
+def test_non_boolean_required_emits_e_col_009() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: text
+**Description**: A field
+**Constraints**:
+  - required: yes
+**Examples**: a
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-009")
+
+
+def test_range_must_be_two_element_list_emits_e_col_011() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: integer
+**Description**: A field
+**Units**: years
+**Constraints**:
+  - range: [0, 50, 100]
+**Examples**: 25
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-011")
+
+
+def test_range_string_value_emits_e_col_011() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: integer
+**Description**: A field
+**Units**: years
+**Constraints**:
+  - range: 0 to 100
+**Examples**: 25
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-011")
+
+
+def test_valid_range_with_null_does_not_emit_error() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### foo
+**Type**: integer
+**Description**: A field
+**Units**: years
+**Constraints**:
+  - range: [0, null]
+**Examples**: 25
+"""
+    result = _validate(content)
+    assert not _has_error(result, "E-COL-011")
+
+
+# ── ReuseComponent (E-COL-010) ──────────────────────────────────────
+
+
+def test_reuse_component_without_at_emits_e_col_010() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### state
+**Type**: text
+**ReuseComponent**: NIEM:StateCode
+**Description**: State code
+**Examples**: CA
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-010")
+
+
+def test_reuse_component_without_colon_emits_e_col_010() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### state
+**Type**: text
+**ReuseComponent**: @NIEMStateCode
+**Description**: State code
+**Examples**: CA
+"""
+    result = _validate(content)
+    assert _has_error(result, "E-COL-010")
+
+
+def test_valid_reuse_component_does_not_emit_error() -> None:
+    content = """---
+template_version: "4.0.0"
+dataset:
+  name: "Test"
+---
+
+## Data: Root
+
+### state
+**Type**: text
+**ReuseComponent**: @NIEM:StateUSPostalServiceCode
+**Description**: US state postal abbreviation
+**Examples**: CA, NY, TX
+"""
+    result = _validate(content)
+    assert not _has_error(result, "E-COL-010")
+
+
+# ── YAML hygiene warnings ───────────────────────────────────────────
+
+
+def test_unknown_yaml_top_level_key_emits_w_yaml_001() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
@@ -886,129 +550,109 @@ source_language: "English"
 
 ## Data: Root
 
-**Type**: Cluster
-**Description**: Data
-
-## Workflow: Status Tracking
-
-**Description**: Tracks workflow state
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is True
+    result = _validate(content)
+    assert _has_warning(result, "W-YAML-001")
 
-    def test_attestation_section_skipped(self, validator):
-        """Attestation section heading should not be parsed as component."""
-        content = """---
+
+def test_unknown_dataset_subkey_emits_w_yaml_002() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
+  domain: "Healthcare"
 ---
 
 ## Data: Root
 
-**Type**: Cluster
-**Description**: Data
-
-## Attestation: Clinical Signature
-
-**View**: application/pdf
-**Proof**: application/pkcs7-signature
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is True
+    result = _validate(content)
+    assert _has_warning(result, "W-YAML-002")
 
-    def test_audit_section_skipped(self, validator):
-        """Audit section heading should not be parsed as component."""
-        content = """---
+
+# ── Section-level keyword warnings ──────────────────────────────────
+
+
+def test_unknown_section_keyword_emits_w_sec_001() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
 ## Data: Root
 
-**Type**: Cluster
-**Description**: Data
+**SomeUnknownSectionKeyword**: ignored
 
-## Audit: EHR Log
-
-**System ID**: ehr-prod-01
-**System User**: admin
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is True
+    result = _validate(content)
+    assert _has_warning(result, "W-SEC-001")
 
-    def test_links_section_skipped(self, validator):
-        """Links section heading should not be parsed as component."""
-        content = """---
+
+# ── Suggestions ─────────────────────────────────────────────────────
+
+
+def test_missing_dataset_description_emits_s_ql_003() -> None:
+    content = """---
 template_version: "4.0.0"
 dataset:
   name: "Test"
-source_language: "English"
 ---
 
 ## Data: Root
 
-**Type**: Cluster
-**Description**: Data
-
-## Links:
-
-  - https://example.com/ontology/v1
-  - https://schema.org/MedicalRecord
+### foo
+**Type**: text
+**Description**: A field
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.valid is True
+    result = _validate(content)
+    assert _has_suggestion(result, "S-QL-003")
 
 
-class TestFrontMatterCompatibility:
-    """Test both YAML front matter formats."""
-
-    def test_form2sdc_template_format(self, validator):
-        """Accept Form2SDCTemplate.md format with dataset.name."""
-        content = """---
+def test_missing_column_description_emits_s_col_002() -> None:
+    content = """---
 template_version: "4.0.0"
-dataset:
-  name: "Test Dataset"
-  description: "A test"
-source_language: "English"
----
-
-## Data: Root
-
-**Type**: Cluster
-**Description**: Root cluster
-"""
-        result = validator.validate(content)
-        assert result.valid is True
-
-class TestMetadata:
-    """Test validation result metadata."""
-
-    def test_metadata_fields(self, validator, valid_minimal_template):
-        """Metadata should contain required fields."""
-        result = validator.validate(valid_minimal_template, document="test.md")
-        assert result.metadata["validator"] == "form2sdc-validator-python"
-        assert result.metadata["version"] == "1.0.0"
-        assert result.metadata["document"] == "test.md"
-        assert "validation_time" in result.metadata
-        assert result.metadata["total_components"] >= 2
-        assert result.metadata["critical_count"] == 0
-
-    def test_error_counts(self, validator):
-        """Metadata counts should match actual lists."""
-        content = """---
 dataset:
   name: "Test"
 ---
 
-### Name
+## Data: Root
 
-**Type**: String
+### foo
+**Type**: text
+**Examples**: a
 """
-        result = validator.validate(content)
-        assert result.metadata["critical_count"] == len(result.errors)
-        assert result.metadata["warning_count"] == len(result.warnings)
-        assert result.metadata["suggestion_count"] == len(result.suggestions)
+    result = _validate(content)
+    assert _has_suggestion(result, "S-COL-002")
+
+
+# ── Happy path: valid template passes ───────────────────────────────
+
+
+def test_minimal_valid_template_passes(valid_minimal_template: str) -> None:
+    result = _validate(valid_minimal_template)
+    assert result.valid, (
+        "Minimal valid template should pass:\n"
+        + "\n".join(f"  [{e.code}] {e.message}" for e in result.errors)
+    )
+
+
+def test_complete_valid_template_passes(valid_complete_template: str) -> None:
+    result = _validate(valid_complete_template)
+    assert result.valid, (
+        "Complete valid template should pass:\n"
+        + "\n".join(f"  [{e.code}] {e.message}" for e in result.errors)
+    )

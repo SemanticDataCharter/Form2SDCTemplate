@@ -1,6 +1,6 @@
 # Form2SDCTemplate
 
-[![Version](https://img.shields.io/badge/version-4.4.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
+[![Version](https://img.shields.io/badge/version-4.2.0-blue)](https://github.com/SemanticDataCharter/Form2SDCTemplate)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![SDC](https://img.shields.io/badge/SDC-4.0-purple)](https://github.com/SemanticDataCharter/SDCRM)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)
@@ -284,9 +284,11 @@ Form2SDCTemplate supports generation of templates compliant with:
 
 ## Version Information
 
-**Current Version:** 4.3.0
+**Current Version:** 4.2.0
 
 The major version (4.x.x) aligns with SDC Generation 4, ensuring compatibility across the SDC4 ecosystem. See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+**4.2.0 — md2pd-aligned rewrite.** The LLM instruction document, the Python builder, and the validator have been rewritten to match the production SDCStudio md2pd parser exactly. The legacy flat-keyword constraint forms (`**Min Length**:`, `**Pattern**:`, `**Min Magnitude**:`, etc.), the `### Column: name` column heading, the `## Cluster:` / `## Root Cluster:` section headings, and cluster-level component reuse have all been removed — they were never honored by md2pd. Templates produced under the older syntax will not parse correctly. See [CHANGELOG.md](CHANGELOG.md) for the full migration guide.
 
 ## Contributing
 
