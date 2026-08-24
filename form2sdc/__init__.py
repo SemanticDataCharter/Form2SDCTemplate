@@ -1,6 +1,6 @@
 """form2sdc - Convert forms to SDC4-compliant templates."""
 
-__version__ = "4.5.1"
+__version__ = "4.6.0"
 
 from form2sdc.types import (
     ColumnType,
@@ -15,6 +15,12 @@ from form2sdc.types import (
 )
 from form2sdc.validator import Form2SDCValidator, ValidationResult, ValidationIssue
 from form2sdc.template_builder import TemplateBuilder
+from form2sdc.catalog import (
+    CatalogClient,
+    CatalogMatch,
+    ReuseReport,
+    apply_catalog_reuse,
+)
 
 __all__ = [
     "ColumnType",
@@ -30,4 +36,8 @@ __all__ = [
     "ValidationResult",
     "ValidationIssue",
     "TemplateBuilder",
+    "CatalogClient",
+    "CatalogMatch",
+    "ReuseReport",
+    "apply_catalog_reuse",
 ]

@@ -25,8 +25,11 @@ The fastest way to convert a form to an SDC4 template:
 1. Open the [Form2SDCTemplate Colab notebook](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)
 2. Enter your [Google AI API key](https://aistudio.google.com/apikey)
 3. Upload your form (PDF, DOCX, PNG, JPG)
-4. Download the generated SDC4 markdown template
-5. Upload to SDCStudio for processing
+4. Fields are matched automatically against the public SDCStudio component
+   catalog, so anything already defined is reused rather than defined again.
+   No SDCStudio account is needed for this.
+5. Download the generated SDC4 markdown template
+6. Upload to SDCStudio for processing
 
 ### Quick Start with Python
 
@@ -108,7 +111,10 @@ else:
 - Dataset overview and business context
 - SDC4 named tree organization (Data, Subject, Provider, Participation, Workflow, Attestation, Audit, Links)
 - Column definitions with constraints and enumerations
-- Component reuse support (NIEM, FHIR, HL7v3)
+- Automatic component reuse from the public SDCStudio catalog (6,700+ published
+  components, including NIEM, FHIR and HL7v3 derived definitions). Matching is
+  deterministic and requires an exact label and type match; no account or API key
+  is required, and an optional key only raises the rate limit.
 - Example templates in English, French, and Brazilian Portuguese
 
 ### Rapid Development

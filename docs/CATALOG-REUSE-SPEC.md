@@ -1,6 +1,6 @@
 # Spec: make catalog reuse actually work
 
-**Status:** ready to build. 2026-08-24.
+**Status:** BUILT, 2026-08-24. See "What actually happened" at the end.
 **Scope:** the Colab notebook and `form2sdc`. One server-side prerequisite, already fixed.
 
 ---
@@ -74,6 +74,10 @@ The catalog returns the exact string the template syntax wants:
 
 One request per field is slow and burns the anonymous rate limit on a wide form. Query once per **distinct inferred type**, cache the results, and match locally. A 60-field form drops from 60 requests to at most a dozen.
 
+> **Superseded during the build.** This assumed the client can choose `page_size`. It cannot: the server hardcodes `page_size = 50` and ignores the parameter. Pulling one type whole costs 32 requests for XdString alone and ~135 for the catalog, and the view serializes the *entire* queryset before slicing in Python, so each of those is a full serialization of 1,551 rows.
+>
+> Built instead as **one request per distinct (field name, type) pair**, cached, which is item B applied per column. Search narrows hard enough that this is cheaper than the batch for any real form: "Address" against XdString returns 42 rows, most terms return single digits.
+
 ### E. Report what happened
 
 Print a short summary: fields matched, fields with no candidate, and any rate-limit or network failure. The current handler is `except Exception: pass`, which is the same silence that hid the server bug for weeks. **Never let this fail invisibly.**
@@ -101,3 +105,32 @@ The whole change is a query parameter, a removed conditional, and a cache.
 ## Out of scope
 
 **Do not turn this into an SDCStudio API client.** The value here is the zero-friction on-ramp: no account, no install, no credits, and the `Form2SDCTemplate.md` path still works with any LLM including a local one in an air-gapped setting. SDCBench and SDC_Agents already serve the authenticated, installed case. This tool should remain the one that asks for nothing.
+
+---
+
+## What actually happened
+
+Built and verified against production on 2026-08-24. Two of the five items rested on assumptions that did not survive contact with the running server.
+
+**The zero-results cause was mine, not the server's.** With the server fix deployed, the first end-to-end run still matched nothing. Two client bugs:
+
+1. `str(column.column_type)` returns `"ColumnType.DATE"`, not `"date"`. `ColumnType` is a `(str, Enum)` mixin, so `__str__` comes from `Enum`. `resolve_sdc4_type` passed the unrecognized string through unchanged and every type comparison failed silently. `TemplateBuilder` already used `.value`; the fix was to match it.
+2. Pagination looped `while len(rows) < requested_page_size`, and the server caps `page_size` at 50 regardless of what is asked, so the loop exited after the first page and only ever saw the first 50 labels alphabetically. "Date of Birth" is in the catalog as an XdTemporal and was simply never reached.
+
+**Partial matching was implemented, then removed.** Accepting a column name contained in a catalog label bound a column named "Weight" to a component named "Body Weight". The column could as easily have been shipping weight. The bind is silent, is emitted as a genuine `ReuseComponent`, and survives into published data, so it costs more than minting a duplicate. Matching is now exact normalized label plus exact type. A test pins this.
+
+**Item E paid for itself immediately.** `ReuseReport.available` initially read `not (errors and not matched and not unmatched)`, which reported an unreachable catalog as available, because a failed lookup also leaves its column unmatched. Caught by the acceptance-4 test, not by inspection.
+
+### Acceptance, as verified
+
+| # | Criterion | Result |
+|---|---|---|
+| 1 | Reuse emitted with no API key | Pass. `@Default:Address (Line 1)` and `@NIH_CDE:Date of Birth`, anonymous. |
+| 2 | Never a type mismatch | Pass. Type checked server-side and re-checked client-side; test pinned. |
+| 3 | Passes `form2sdc.validator` and parses in md2pd | Pass. `valid=True`; md2pd `parse()` resolved both references with zero errors and zero warnings. |
+| 4 | Unreachable catalog still generates, and says so | Pass. Test asserts generation continues, `available` is False, and the summary says why. |
+| 5 | One request per distinct type, not per field | Adapted, see item D. One per distinct (name, type), cached; test asserts a repeated field name costs one request. |
+
+### Left for the server, not fixed here
+
+`catalog_components_view` serializes the full queryset before slicing for pagination, so every page request serializes all matching rows and discards all but 50. Harmless for narrow searches, wasteful for broad ones. Raising the `page_size` cap would also make whole-type caching viable. Neither blocks this feature.

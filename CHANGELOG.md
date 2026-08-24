@@ -18,6 +18,61 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.6.0] - 2026-08-24
+
+### Added
+
+- **Automatic component reuse from the public SDCStudio catalog** (`form2sdc.catalog`).
+  Every column is matched against the 6,700+ published, public components and,
+  where a type-correct component with the same label exists, the template emits
+  `**ReuseComponent**: @Project:Label` instead of defining the component again.
+  Reuse is the mechanism by which design-time modeling cost amortizes, so a
+  generator that mints every component fresh incurs the expensive path at exactly
+  the moment a newcomer forms an impression of what SDC costs.
+
+  - `apply_catalog_reuse(analysis)` sets `ColumnDefinition.reuse_component` in
+    place and returns a `ReuseReport` naming what matched, what did not, and any
+    lookup failure.
+  - Matching is **deterministic**, not LLM-mediated. The previous design fed
+    candidates back to the LLM and asked it to emit the reference; assigning the
+    field directly removes an entire analysis round trip and the possibility of
+    the model declining to comply.
+  - Matching requires an **exact normalized label and an exact type match**.
+    Partial matching was implemented and then removed: it bound a column named
+    "Weight" to a component named "Body Weight", which could as easily have been
+    shipping weight. A wrong reuse is silent, is emitted as a real reference, and
+    survives into published data, so it costs more than minting a duplicate.
+  - `reuse_ref` is used **verbatim** as returned by the API. md2pd resolves it
+    with an exact `label=` lookup, so reconstructing it from `project_name` and
+    `label` locally is how the two drift apart.
+
+### Changed
+
+- **Component reuse no longer requires an SDCStudio account or API key.** The
+  catalog endpoint is public. The key is now optional and does one thing: raises
+  the rate limit from 200 to 2,000 requests per hour. Requiring a login to
+  discover reuse inverted the funnel, since reuse is what makes a first template
+  cheap.
+- The notebook no longer re-prompts the LLM with catalog context (former Cell 5
+  and Cell 6). Reuse references are assigned before the build and emitted by
+  `TemplateBuilder` directly.
+- Catalog lookups report failures instead of swallowing them. The previous
+  handler was `except Exception: pass`, which is why a server-side catalog bug
+  went unnoticed for weeks: an endpoint returning zero results was
+  indistinguishable from an empty database.
+
+### Fixed
+
+- `resolve_sdc4_type` was being called with `str(column.column_type)`, which
+  yields `"ColumnType.DATE"` rather than `"date"` because `ColumnType` is a
+  mixin `Enum` whose `__str__` comes from `Enum`, not `str`. Every type
+  comparison silently failed. Now uses `.value`, matching `TemplateBuilder`.
+- Label comparison unescapes HTML entities first. Some catalog labels carry them
+  literally (for example `% &lt;poverty line Neighborhood PhenX`), so without
+  this the two sides normalize differently and never match.
+
+---
+
 ## [4.5.1] - 2026-05-08
 
 ### Changed
