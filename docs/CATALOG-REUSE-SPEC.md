@@ -131,6 +131,8 @@ Built and verified against production on 2026-08-24. Two of the five items reste
 | 4 | Unreachable catalog still generates, and says so | Pass. Test asserts generation continues, `available` is False, and the summary says why. |
 | 5 | One request per distinct type, not per field | Adapted, see item D. One per distinct (name, type), cached; test asserts a repeated field name costs one request. |
 
-### Left for the server, not fixed here
+### Server side, fixed separately
 
-`catalog_components_view` serializes the full queryset before slicing for pagination, so every page request serializes all matching rows and discards all but 50. Harmless for narrow searches, wasteful for broad ones. Raising the `page_size` cap would also make whole-type caching viable. Neither blocks this feature.
+`catalog_components_view` serialized the full queryset before slicing, so every page request serialized all matching rows and discarded all but 50, and it had an N+1 on `units` because only `project` was `select_related`. Fixed in SDCStudio (`362e8255`): paging now happens in the database, `page_size` is client-controllable up to 200, and a 28-row XdQuantity page went from 29 queries to 2.
+
+The client does **not** depend on that deploy. It asks for `page_size=200` and stops on the `count` the response reports, so it is correct whether the server honours the parameter or caps it at 50.

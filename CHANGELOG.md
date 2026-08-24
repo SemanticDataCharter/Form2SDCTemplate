@@ -67,6 +67,10 @@ aligned with SDC Generation 4.
   yields `"ColumnType.DATE"` rather than `"date"` because `ColumnType` is a
   mixin `Enum` whose `__str__` comes from `Enum`, not `str`. Every type
   comparison silently failed. Now uses `.value`, matching `TemplateBuilder`.
+- Pagination stops on the `count` reported by the response rather than on an
+  assumed page size. Comparing a short page against a size the server never
+  agreed to is what truncated results to the first 50 labels, and the same trap
+  reopens whenever either side changes its paging.
 - Label comparison unescapes HTML entities first. Some catalog labels carry them
   literally (for example `% &lt;poverty line Neighborhood PhenX`), so without
   this the two sides normalize differently and never match.

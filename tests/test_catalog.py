@@ -257,3 +257,31 @@ def test_generated_template_still_validates():
     result = Form2SDCValidator().validate(TemplateBuilder().build(a))
 
     assert result.valid, [e.message for e in result.errors]
+
+
+# ── pagination must not truncate ─────────────────────────────────────
+
+
+def test_pagination_follows_count_not_an_assumed_page_size():
+    """The original bug: the loop stopped when a page was smaller than the size
+    it asked for, but the server capped page_size below that and returned a
+    short page every time. Everything past the first page was lost, silently.
+
+    This fake caps at 50 no matter what is requested, exactly as the server did.
+    """
+    corpus = [row(f"Field {i:03d}", "XdString") for i in range(120)]
+    corpus.append(row("Zebra Target", "XdString"))       # sorts last, page 3
+
+    client = FakeClient(corpus)
+    # "e" appears in every label via "Field" and "Zebra", so all 121 rows match.
+    hits = client.search("e", "XdString")
+    assert len(hits) == 121, "results past the first page were dropped"
+    assert client.requests == 3
+
+
+def test_a_match_beyond_the_first_page_is_still_found():
+    corpus = [row(f"Field {i:03d}", "XdTemporal") for i in range(60)]
+    corpus.append(row("Date of Birth", "XdTemporal", "NIH_CDE"))
+    c = FakeClient(corpus)
+    m = c.best_match(col("Date of Birth", "date"))
+    assert m is not None and m.reuse_ref == "@NIH_CDE:Date of Birth"

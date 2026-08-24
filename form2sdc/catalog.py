@@ -40,10 +40,10 @@ DEFAULT_CATALOG_URL = "https://sdcstudio.axius-sdc.com/api/v1/catalog/components
 # from the catalog would parse as a column and fail validation.
 UNUSABLE_TYPES = {"Cluster"}
 
-# The server fixes its page size at 50 and ignores any ``page_size`` we send, so
-# this is an observed constant rather than a request parameter. Confirmed
-# against production 2026-08-24: asking for 100, 200 or 500 all return 50.
-_SERVER_PAGE_SIZE = 50
+# Asked for, never assumed. Older servers hardcode 50 and ignore this; newer
+# ones honour it up to 200. Either way the loop stops on the ``count`` the
+# response reports, so both behave correctly and neither truncates silently.
+_PREFERRED_PAGE_SIZE = 200
 
 # A search narrow enough to be useful returns well under one page. If a term is
 # broad enough to exceed this many pages it is too broad to match confidently,
@@ -164,13 +164,16 @@ class CatalogClient:
         found: list[CatalogMatch] = []
         try:
             page = 1
+            seen = 0
             while page <= _MAX_PAGES:
                 payload = self._fetch({
                     "search": term,
                     "type": sdc4_type.lower(),
                     "page": page,
+                    "page_size": _PREFERRED_PAGE_SIZE,
                 })
                 rows = payload.get("results", [])
+                seen += len(rows)
                 for r in rows:
                     if r.get("component_type") in UNUSABLE_TYPES:
                         continue
@@ -188,7 +191,13 @@ class CatalogClient:
                         description=r.get("description", "") or "",
                         units=r.get("units", "") or "",
                     ))
-                if len(rows) < _SERVER_PAGE_SIZE:
+                # Stop on the server's own count rather than on a page size we
+                # assumed. Comparing against an assumed size is what silently
+                # truncated results to the first 50 labels when the server
+                # capped page_size below what was asked for, and the same trap
+                # reopens every time either side changes its paging.
+                total = payload.get("count")
+                if not rows or (isinstance(total, int) and seen >= total):
                     break
                 page += 1
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError,
