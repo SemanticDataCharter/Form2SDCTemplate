@@ -20,6 +20,13 @@ Both approaches produce standards-compliant SDC4 templates ready for SDCStudio u
 
 ## Quick Start with Google Colab
 
+> **Not for regulated data.** The Colab notebook and `GeminiAnalyzer` send the form you upload to Google's Gemini API.
+> Do not use them with protected health information, controlled unclassified information, or anything under a data
+> use agreement. Upload blank forms, not completed ones. Where even a blank form can't leave your environment, give
+> `Form2SDCTemplate.md` to a model that runs inside it (see Manual LLM Usage), or implement the `FormAnalyzer` protocol
+> for a local model.
+
+
 The fastest way to convert a form to an SDC4 template:
 
 1. Open the [Form2SDCTemplate Colab notebook](https://colab.research.google.com/github/SemanticDataCharter/Form2SDCTemplate/blob/main/notebooks/form_to_template.ipynb)
