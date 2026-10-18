@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_packaged_prompt_matches_the_repository_root():
-    assert (ROOT / "form2sdc" / "Form2SDCTemplate.md").read_text() == (ROOT / "Form2SDCTemplate.md").read_text()
+    # Compare bytes: the prompt is UTF-8 and Windows would otherwise decode it as cp1252.
+    assert (ROOT / "form2sdc" / "Form2SDCTemplate.md").read_bytes() == (ROOT / "Form2SDCTemplate.md").read_bytes()
 
 
 def test_the_loaded_prompt_teaches_the_md2pd_section_syntax():
