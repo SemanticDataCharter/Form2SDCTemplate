@@ -18,6 +18,21 @@ aligned with SDC Generation 4.
 
 ---
 
+## [4.6.1] - 2026-10-17
+
+### Fixed
+
+- **The packaged LLM prompt was the pre-4.5.0 syntax.** `form2sdc/Form2SDCTemplate.md`, the
+  copy `prompt_loader.load_system_prompt` tries first and the copy the 4.6.0 wheel ships, still
+  taught `## Root Cluster:` and `### Column:` (141 of them, no `## Data:`), while the repository
+  root held the 4.5.0 md2pd-aligned rewrite. An installed form2sdc's Gemini path therefore wrote
+  templates md2pd rejects with "No Data section found", and the package's own validator rejected
+  them (E-SEC-001). The packaged copy is now identical to the root, and
+  `tests/test_prompt_loader.py` fails if the two diverge or if the loaded prompt stops teaching
+  `## Data:`. Templates written by the deterministic builder were never affected.
+
+---
+
 ## [4.6.0] - 2026-08-24
 
 ### Added
