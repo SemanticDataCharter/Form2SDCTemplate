@@ -100,11 +100,7 @@ Please report security vulnerabilities if you discover:
 
 **Do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please report security vulnerabilities via email:
-
-**Email:** security@axius-sdc.com
-
-**Subject Line:** [SECURITY] Form2SDCTemplate - Brief Description
+Instead, report privately through GitHub's private vulnerability reporting: open this repository's Security tab and choose "Report a vulnerability" (https://github.com/SemanticDataCharter/Form2SDCTemplate/security/advisories/new). Do not send a report by email.
 
 ### What to Include
 
@@ -300,9 +296,7 @@ Users must ensure:
 
 ## Contact
 
-**Security Email:** security@axius-sdc.com
-
-**GPG Key:** (Available upon request)
+**Security reports:** GitHub private vulnerability reporting (Security tab, "Report a vulnerability")
 
 **Response Time:** Within 48 hours for security reports
 
